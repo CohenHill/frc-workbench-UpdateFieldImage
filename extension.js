@@ -309,48 +309,68 @@ function activate(context) {
 						// Create NetworkTables client
 						ntClient = new Client();
 
-						ntClient.on('connected', () => {
-							isConnected = true;
-							panel.webview.postMessage({
-								command: 'connectionStatus',
-								connected: true
-							});
-							vscode.window.showInformationMessage(`Connected to robot at ${host}`);
+						ntClient.clientName = 'Desktop Support FRC Plugin';
 
-							// Scan for PID controllers
-							setTimeout(() => scanForPIDControllers(), 1000);
-						});
 
-						ntClient.on('disconnected', () => {
-							isConnected = false;
-							panel.webview.postMessage({
-								command: 'connectionStatus',
-								connected: false
-							});
-						});
 
-						ntClient.on('error', (err) => {
-							vscode.window.showErrorMessage(`NetworkTables error: ${err.message}`);
-						});
+
 
 						// Listen for NT updates
 						ntClient.addListener((key, value, flags) => {
-							// Check if it's a PID value
-							if (key.includes('/PID/')) {
+							console.log('NT Key:', key, 'Value:', value); // Debug logging
+							// Check if it's a PID value - support multiple formats
+							if (key && (key.includes('/PID/') || key.includes('PIDController') ||
+								key.includes('/p') || key.includes('/i') || key.includes('/d') || key.includes('/f'))) {
 								updatePIDFromNT(key, value);
 							}
 						});
 
 						// Start connection
-						ntClient.start((err, status) => {
-							if (err) {
-								vscode.window.showErrorMessage(`Failed to connect: ${err.message}`);
+						ntClient.start((err) => {
+							if (!err) {
+								isConnected = true;
+								panel.webview.postMessage({
+									command: 'connectionStatus',
+									connected: true
+								});
+								vscode.window.showInformationMessage(`Connected to robot at ${host}`);
+								setTimeout(() => scanForPIDControllers(), 2000);
+							} else {
+								isConnected = false;
+								vscode.window.showErrorMessage(`Failed to connect to ${host}`);
 								panel.webview.postMessage({
 									command: 'connectionStatus',
 									connected: false
 								});
 							}
 						}, host);
+
+						// Poll connection status
+						const statusInterval = setInterval(() => {
+							if (!ntClient) {
+								clearInterval(statusInterval);
+								return;
+							}
+							const connected = ntClient.isConnected();
+							if (connected !== isConnected) {
+								isConnected = connected;
+								panel.webview.postMessage({
+									command: 'connectionStatus',
+									connected: isConnected
+								});
+								if (!connected) {
+									vscode.window.showWarningMessage('Disconnected from robot');
+								}
+							}
+						}, 1000);
+
+						// Cleanup on panel close
+						panel.onDidDispose(() => {
+							clearInterval(statusInterval);
+							if (ntClient) {
+								ntClient.stop();
+							}
+						});
 
 					} catch (error) {
 						vscode.window.showErrorMessage(`Failed to connect: ${error.message}`);
@@ -382,7 +402,20 @@ function activate(context) {
 					if (isConnected && ntClient) {
 						// Send to NetworkTables
 						const ntKey = `/SmartDashboard/${message.controller}/PID/${message.param}`;
-						ntClient.updateValue(ntKey, message.value);
+						// In wpilib-nt-client, we need to find the ID or use Assign
+						const id = ntClient.getKeyID(ntKey);
+						if (id !== undefined && id !== -1) {
+							ntClient.Update(id, message.value);
+						} else {
+							// Try without leading slash
+							const cleanKey = ntKey.startsWith('/') ? ntKey.substring(1) : ntKey;
+							const altId = ntClient.getKeyID(cleanKey);
+							if (altId !== undefined && altId !== -1) {
+								ntClient.Update(altId, message.value);
+							} else {
+								ntClient.Assign(message.value, ntKey);
+							}
+						}
 
 						// Update local cache
 						if (!pidControllers[message.controller]) {
@@ -393,7 +426,6 @@ function activate(context) {
 					break;
 
 				case 'save':
-					// Save PID values to Constants file
 					await savePIDToConstants(message.controller, message.values);
 					vscode.window.showInformationMessage(`PID values for ${message.controller} saved to Constants!`);
 					break;
@@ -407,44 +439,96 @@ function activate(context) {
 		});
 
 		function scanForPIDControllers() {
-			if (!ntClient) return;
+			if (!ntClient) {
+				console.log('PID Tuner: No NetworkTables client found.');
+				return;
+			}
 
-			// Get all keys from NetworkTables
 			const keys = ntClient.getKeys();
+
+			console.log('--- PID Tuner: Scanning NetworkTables ---');
+			console.log(`Total Keys Found: ${keys ? keys.length : 0}`);
+
 			const controllers = new Set();
 
-			// Look for PID-related keys
-			keys.forEach(key => {
-				if (key.includes('/PID/') || key.includes('PIDController')) {
-					// Extract controller name
-					const parts = key.split('/');
-					const controllerName = parts.find(p => p && !p.includes('PID') && p !== 'SmartDashboard');
-					if (controllerName) {
-						controllers.add(controllerName);
-					}
-				}
-			});
+			if (keys && Array.isArray(keys)) {
+				keys.forEach(key => {
+					// Split by slash and filter out empty strings (handles leading/trailing/multiple slashes)
+					const parts = key.split('/').filter(p => p.trim().length > 0);
 
-			// Send to webview
+					// Find the index of something that looks like a PID constant (p, i, d, f, kP, kI, kD, kF)
+					const paramIndex = parts.findIndex(p => {
+						const up = p.toUpperCase();
+						return ['P', 'I', 'D', 'F', 'KP', 'KI', 'KD', 'KF'].includes(up);
+					});
+
+					if (paramIndex >= 1) {
+						let potentialName = parts[paramIndex - 1];
+
+						// If the parent is just "PID", use the grandparent (e.g. /Subsystem/PID/p)
+						if (potentialName.toUpperCase() === 'PID' && paramIndex >= 2) {
+							potentialName = parts[paramIndex - 2];
+						}
+
+						// Filter out common root table names
+						const ignored = ['SMARTDASHBOARD', 'SHUFFLEBOARD', '.METADATA', 'LIVEWINDOW'];
+						if (!ignored.includes(potentialName.toUpperCase())) {
+							if (!controllers.has(potentialName)) {
+								console.log(`✅ MATCH: Found "${potentialName}" from key "${key}"`);
+								controllers.add(potentialName);
+							}
+						}
+					}
+				});
+			}
+
+			const controllerList = Array.from(controllers);
+			console.log(`Scan Complete. Controllers detected: [${controllerList.join(', ')}]`);
+			console.log('---------------------------------------');
+
 			panel.webview.postMessage({
 				command: 'controllers',
-				controllers: Array.from(controllers)
+				controllers: controllerList
 			});
 		}
 
 		function updatePIDFromNT(key, value) {
-			// Parse key to get controller and parameter
-			const parts = key.split('/');
-			const controllerIndex = parts.findIndex(p => p === 'PID') - 1;
-			if (controllerIndex < 0) return;
+			const cleanKey = key.startsWith('/') ? key.substring(1) : key;
+			const parts = cleanKey.split('/');
 
-			const controller = parts[controllerIndex];
-			const param = parts[parts.length - 1];
+			const paramIndex = parts.findIndex(p => {
+				const up = p.toUpperCase();
+				return ['P', 'I', 'D', 'F', 'KP', 'KI', 'KD', 'KF'].includes(up);
+			});
 
-			if (!pidControllers[controller]) {
-				pidControllers[controller] = {};
+			if (paramIndex >= 1) {
+				let controllerName = parts[paramIndex - 1];
+				const paramNameRaw = parts[paramIndex];
+
+				// Standardize parameter name for the UI (kP, kI, kD, kF)
+				let paramName = 'kP';
+				const upperParam = paramNameRaw.toUpperCase();
+				if (upperParam.includes('P')) paramName = 'kP';
+				else if (upperParam.includes('I')) paramName = 'kI';
+				else if (upperParam.includes('D')) paramName = 'kD';
+				else if (upperParam.includes('F')) paramName = 'kF';
+
+				if (controllerName.toUpperCase() === 'PID' && paramIndex >= 2) {
+					controllerName = parts[paramIndex - 2];
+				}
+
+				if (!pidControllers[controllerName]) {
+					pidControllers[controllerName] = {};
+				}
+				pidControllers[controllerName][paramName] = value;
+
+				// Send update to webview
+				panel.webview.postMessage({
+					command: 'pidValues',
+					controller: controllerName,
+					values: pidControllers[controllerName]
+				});
 			}
-			pidControllers[controller][param] = value;
 		}
 
 		// Cleanup on panel close
