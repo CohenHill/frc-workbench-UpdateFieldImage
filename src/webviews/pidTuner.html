@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PID Tuner</title>
+    <style>
+        :root {
+            --background: var(--vscode-editor-background);
+            --foreground: var(--vscode-editor-foreground);
+            --sidebar-bg: var(--vscode-sideBar-background);
+            --input-bg: var(--vscode-input-background);
+            --input-fg: var(--vscode-input-foreground);
+            --input-border: var(--vscode-input-border);
+            --button-bg: var(--vscode-button-background);
+            --button-fg: var(--vscode-button-foreground);
+            --button-hover: var(--vscode-button-hoverBackground);
+            --border-color: var(--vscode-panel-border);
+            --success-color: var(--vscode-testing-iconPassed);
+            --error-color: var(--vscode-testing-iconFailed);
+        }
+
+        body {
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            background-color: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 15px 20px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .connection-status {
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--error-color);
+        }
+
+        .status-indicator.connected {
+            background: var(--success-color);
+        }
+
+        .subsystem-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .subsystem-item {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+        }
+
+        .subsystem-item:hover {
+            background: var(--vscode-list-hoverBackground);
+        }
+
+        .subsystem-item.active {
+            background: var(--vscode-list-activeSelectionBackground);
+            color: var(--vscode-list-activeSelectionForeground);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background-color: var(--button-hover);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--foreground);
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .tuner-section {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .pid-control {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(128, 128, 128, 0.05);
+            border-radius: 4px;
+        }
+
+        .pid-control h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+        }
+
+        .slider-group {
+            margin-bottom: 20px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .slider-label .value {
+            font-weight: 600;
+            color: var(--vscode-textLink-foreground);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--input-bg);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--button-bg);
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--button-bg);
+            cursor: pointer;
+            border: none;
+        }
+
+        .graph-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(128, 128, 128, 0.05);
+            border-radius: 4px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            opacity: 0.6;
+        }
+
+        .empty-state h2 {
+            margin: 0 0 10px 0;
+        }
+
+        .quick-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .quick-input input {
+            flex: 1;
+            background: var(--input-bg);
+            color: var(--input-fg);
+            border: 1px solid var(--input-border);
+            padding: 6px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">PID Controllers</div>
+        <div class="connection-status">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span id="statusText">Disconnected</span>
+        </div>
+        <div class="subsystem-list" id="subsystemList">
+            <div class="empty-state" style="padding: 20px;">
+                <p>No PID controllers detected</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="toolbar">
+            <button class="btn" id="connectBtn">Connect to Robot</button>
+            <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+            <div style="flex: 1"></div>
+            <button class="btn" id="saveBtn" disabled>Save to Constants</button>
+        </div>
+
+        <div class="content-area">
+            <div class="tuner-section" id="tunerSection">
+                <div class="empty-state">
+                    <h2>🎛️ PID Tuner</h2>
+                    <p>Connect to your robot to start tuning PID controllers</p>
+                    <p style="font-size: 0.9em; margin-top: 20px;">
+                        Make sure NetworkTables is running on your robot and you're connected to the same network.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        let currentController = null;
+        let pidValues = {};
+
+        // Connect button
+        document.getElementById('connectBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'connect' });
+        });
+
+        // Refresh button
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'refresh' });
+        });
+
+        // Save button
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            if (currentController && pidValues[currentController]) {
+                vscode.postMessage({
+                    command: 'save',
+                    controller: currentController,
+                    values: pidValues[currentController]
+                });
+            }
+        });
+
+        // Handle messages from extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+
+            switch (message.command) {
+                case 'connectionStatus':
+                    updateConnectionStatus(message.connected);
+                    break;
+                case 'controllers':
+                    updateControllerList(message.controllers);
+                    break;
+                case 'pidValues':
+                    updatePIDValues(message.controller, message.values);
+                    break;
+            }
+        });
+
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('statusIndicator');
+            const text = document.getElementById('statusText');
+
+            if (connected) {
+                indicator.classList.add('connected');
+                text.textContent = 'Connected';
+                document.getElementById('connectBtn').textContent = 'Disconnect';
+            } else {
+                indicator.classList.remove('connected');
+                text.textContent = 'Disconnected';
+                document.getElementById('connectBtn').textContent = 'Connect to Robot';
+            }
+        }
+
+        function updateControllerList(controllers) {
+            const list = document.getElementById('subsystemList');
+
+            if (!controllers || controllers.length === 0) {
+                list.innerHTML = '<div class="empty-state" style="padding: 20px;"><p>No PID controllers detected</p></div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            controllers.forEach(controller => {
+                const item = document.createElement('div');
+                item.className = 'subsystem-item';
+                item.textContent = controller;
+                item.onclick = () => selectController(controller);
+                list.appendChild(item);
+            });
+        }
+
+        function selectController(controller) {
+            currentController = controller;
+
+            // Update active state
+            document.querySelectorAll('.subsystem-item').forEach(item => {
+                item.classList.toggle('active', item.textContent === controller);
+            });
+
+            // Request PID values
+            vscode.postMessage({ command: 'getValues', controller: controller });
+        }
+
+        function updatePIDValues(controller, values) {
+            pidValues[controller] = values;
+
+            if (controller !== currentController) return;
+
+            const tunerSection = document.getElementById('tunerSection');
+            tunerSection.innerHTML = `
+                <div class="pid-control">
+                    <h3>${controller}</h3>
+                    
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>kP (Proportional)</span>
+                            <span class="value" id="kP-value">${values.kP || 0}</span>
+                        </div>
+                        <input type="range" id="kP-slider" min="0" max="10" step="0.01" value="${values.kP || 0}">
+                        <div class="quick-input">
+                            <input type="number" id="kP-input" value="${values.kP || 0}" step="0.01" placeholder="Enter kP">
+                        </div>
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>kI (Integral)</span>
+                            <span class="value" id="kI-value">${values.kI || 0}</span>
+                        </div>
+                        <input type="range" id="kI-slider" min="0" max="1" step="0.001" value="${values.kI || 0}">
+                        <div class="quick-input">
+                            <input type="number" id="kI-input" value="${values.kI || 0}" step="0.001" placeholder="Enter kI">
+                        </div>
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>kD (Derivative)</span>
+                            <span class="value" id="kD-value">${values.kD || 0}</span>
+                        </div>
+                        <input type="range" id="kD-slider" min="0" max="5" step="0.01" value="${values.kD || 0}">
+                        <div class="quick-input">
+                            <input type="number" id="kD-input" value="${values.kD || 0}" step="0.01" placeholder="Enter kD">
+                        </div>
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>kF (Feedforward)</span>
+                            <span class="value" id="kF-value">${values.kF || 0}</span>
+                        </div>
+                        <input type="range" id="kF-slider" min="0" max="1" step="0.001" value="${values.kF || 0}">
+                        <div class="quick-input">
+                            <input type="number" id="kF-input" value="${values.kF || 0}" step="0.001" placeholder="Enter kF">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="graph-container">
+                    <div style="opacity: 0.6;">📊 Response graph coming soon...</div>
+                </div>
+            `;
+
+            // Add event listeners for sliders and inputs
+            ['kP', 'kI', 'kD', 'kF'].forEach(param => {
+                const slider = document.getElementById(`${param}-slider`);
+                const input = document.getElementById(`${param}-input`);
+                const valueDisplay = document.getElementById(`${param}-value`);
+
+                slider.addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    valueDisplay.textContent = value.toFixed(3);
+                    input.value = value;
+                    pidValues[controller][param] = value;
+                    sendPIDUpdate(controller, param, value);
+                });
+
+                input.addEventListener('change', (e) => {
+                    const value = parseFloat(e.target.value);
+                    slider.value = value;
+                    valueDisplay.textContent = value.toFixed(3);
+                    pidValues[controller][param] = value;
+                    sendPIDUpdate(controller, param, value);
+                });
+            });
+
+            document.getElementById('saveBtn').disabled = false;
+        }
+
+        function sendPIDUpdate(controller, param, value) {
+            vscode.postMessage({
+                command: 'updatePID',
+                controller: controller,
+                param: param,
+                value: value
+            });
+        }
+    </script>
+</body>
+
+</html>

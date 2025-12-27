@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-Flight Checklist</title>
+    <style>
+        :root {
+            --background: var(--vscode-editor-background);
+            --foreground: var(--vscode-editor-foreground);
+            --input-bg: var(--vscode-input-background);
+            --button-bg: var(--vscode-button-background);
+            --button-fg: var(--vscode-button-foreground);
+            --button-hover: var(--vscode-button-hoverBackground);
+            --border-color: var(--vscode-panel-border);
+            --success-color: var(--vscode-testing-iconPassed);
+            --warning-color: var(--vscode-testing-iconQueued);
+        }
+
+        body {
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            background-color: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            font-weight: 500;
+            margin: 0 0 10px 0;
+        }
+
+        .subtitle {
+            opacity: 0.7;
+            margin-bottom: 30px;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(128, 128, 128, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .checklist-item:hover {
+            background: rgba(128, 128, 128, 0.15);
+        }
+
+        .checklist-item.checked {
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .checklist-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .checklist-item label {
+            flex: 1;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(128, 128, 128, 0.1);
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 8px;
+            background: rgba(128, 128, 128, 0.2);
+            border-radius: 4px;
+            margin: 0 15px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--success-color);
+            transition: width 0.3s;
+        }
+
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-weight: 500;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background-color: var(--button-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .version-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(128, 128, 128, 0.1);
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .version-info strong {
+            color: var(--warning-color);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚀 Deployment Pre-Flight Checklist</h1>
+        <p class="subtitle">Complete all items before deploying to the robot</p>
+
+        <div class="status-bar">
+            <span id="statusText">0/7 Complete</span>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <span id="progressPercent">0%</span>
+        </div>
+
+        <div id="checklist">
+            <div class="checklist-item" onclick="toggleItem(this)">
+                <input type="checkbox" id="item1">
+                <label for="item1">🔋 Battery is charged (>12.5V)</label>
+            </div>
+            <div class="checklist-item" onclick="toggleItem(this)">
+                <input type="checkbox" id="item2">
+                <label for="item2">🔌 All motor controllers are connected</label>
+            </div>
+            <div class="checklist-item" onclick="toggleItem(this)">
+                <input type="checkbox" id="item3">
+                <label for="item3">🎮 Joysticks are in correct order</label>
+            </div>
+            <div class="checklist-item" onclick="toggleItem(this)">
+                <input type="checkbox" id="item4">
+                <label for="item4">🛡️ Bumpers are secure</label>
+            </div>
+            <div class="checklist-item" onclick="toggleItem(this)">
+                <input type="checkbox" id="item5">
+                <label for="item5">📡 Radio is powered and connected</label>
+            </div>
+            <div class="checklist-item" onclick="toggleItem(this)">
+                <input type="checkbox" id="item6">
+                <label for="item6">⚙️ Code compiles without errors</label>
+            </div>
+            <div class="checklist-item" onclick="toggleItem(this)">
+                <input type="checkbox" id="item7">
+                <label for="item7">✅ Team members ready for test</label>
+            </div>
+        </div>
+
+        <button class="btn" id="deployBtn" disabled>Deploy to Robot</button>
+
+        <div class="version-info" style="display: none;">
+            <div><strong>Build Number:</strong> <span id="buildNumber">Loading...</span></div>
+            <div><strong>Last Deploy:</strong> <span id="lastDeploy">Never</span></div>
+        </div>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        let totalItems = 7;
+        let checkedItems = 0;
+
+        function toggleItem(element) {
+            const checkbox = element.querySelector('input[type="checkbox"]');
+            checkbox.checked = !checkbox.checked;
+            updateProgress();
+        }
+
+        function updateProgress() {
+            checkedItems = document.querySelectorAll('input[type="checkbox"]:checked').length;
+            const percent = Math.round((checkedItems / totalItems) * 100);
+
+            document.getElementById('statusText').textContent = `${checkedItems}/${totalItems} Complete`;
+            document.getElementById('progressPercent').textContent = `${percent}%`;
+            document.getElementById('progressFill').style.width = `${percent}%`;
+
+            // Enable deploy button only when all items are checked
+            document.getElementById('deployBtn').disabled = checkedItems !== totalItems;
+
+            // Update checklist item styling
+            document.querySelectorAll('.checklist-item').forEach((item, index) => {
+                const checkbox = item.querySelector('input[type="checkbox"]');
+                if (checkbox.checked) {
+                    item.classList.add('checked');
+                } else {
+                    item.classList.remove('checked');
+                }
+            });
+        }
+
+        document.getElementById('deployBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'deploy' });
+        });
+
+        // Listen for version info from extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'versionInfo') {
+                document.getElementById('buildNumber').textContent = message.buildNumber;
+                document.getElementById('lastDeploy').textContent = message.lastDeploy;
+            }
+        });
+
+        // Request version info on load
+        vscode.postMessage({ command: 'getVersionInfo' });
+
+        // Add change listeners to all checkboxes
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', updateProgress);
+        });
+    </script>
+</body>
+
+</html>

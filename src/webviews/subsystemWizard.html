@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Subsystem</title>
+    <style>
+        :root {
+            --background: var(--vscode-editor-background);
+            --foreground: var(--vscode-editor-foreground);
+            --sidebar-bg: var(--vscode-sideBar-background);
+            --sidebar-fg: var(--vscode-sideBar-foreground);
+            --list-hover: var(--vscode-list-hoverBackground);
+            --input-bg: var(--vscode-input-background);
+            --input-fg: var(--vscode-input-foreground);
+            --input-border: var(--vscode-input-border);
+            --button-bg: var(--vscode-button-background);
+            --button-fg: var(--vscode-button-foreground);
+            --button-hover: var(--vscode-button-hoverBackground);
+            --border-color: var(--vscode-panel-border);
+        }
+
+        body {
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            background-color: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-fg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 10px 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            opacity: 0.8;
+            letter-spacing: 0.5px;
+        }
+
+        .device-type-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .device-type-item {
+            padding: 8px 20px;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .device-type-item:hover {
+            background-color: var(--list-hover);
+        }
+
+        .device-type-item:active {
+            cursor: grabbing;
+        }
+
+        .device-type-item.dragging {
+            opacity: 0.5;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 20px 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            font-weight: 500;
+            margin: 0;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .form-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        input,
+        select {
+            background-color: var(--input-bg);
+            color: var(--input-fg);
+            border: 1px solid var(--input-border);
+            padding: 8px;
+            border-radius: 2px;
+            font-family: inherit;
+        }
+
+        input:focus,
+        select:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+            border-color: var(--vscode-focusBorder);
+        }
+
+        .drop-zone {
+            min-height: 100px;
+            border: 2px dashed transparent;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .drop-zone.drag-over {
+            border-color: var(--vscode-focusBorder);
+            background: rgba(128, 128, 128, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            opacity: 0.7;
+            font-weight: normal;
+        }
+
+        td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+        }
+
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: var(--button-hover);
+        }
+
+        .btn-icon {
+            background: transparent;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .btn-icon:hover {
+            opacity: 1;
+            color: var(--vscode-errorForeground);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px;
+            background: rgba(128, 128, 128, 0.05);
+            border-radius: 4px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        .info-popup {
+            position: fixed;
+            background: var(--vscode-editorHoverWidget-background);
+            border: 1px solid var(--vscode-editorHoverWidget-border);
+            border-radius: 4px;
+            padding: 12px 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            max-width: 350px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .info-popup h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.1em;
+        }
+
+        .info-popup p {
+            margin: 4px 0;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .info-popup code {
+            background: rgba(128, 128, 128, 0.2);
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-size: 0.85em;
+        }
+
+        .info-popup .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: transparent;
+            border: none;
+            color: var(--foreground);
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">Device Types (Drag to add)</div>
+        <div class="device-type-list" id="deviceTypeList"></div>
+    </div>
+
+    <div class="main-content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h1>Create Subsystem</h1>
+            <button class="btn" id="generateBtn">Generate Code</button>
+        </div>
+
+        <div class="form-section">
+            <div class="form-row">
+                <label>Subsystem Type</label>
+                <select id="subsystemType">
+                    <option value="generic">Generic Subsystem</option>
+                    <option value="pid">Profiled PID Subsystem</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="subsystemName">Subsystem Name</label>
+                <input type="text" id="subsystemName" placeholder="e.g., Intake" autofocus>
+            </div>
+
+            <div class="checkbox-group">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="autoAppend" checked>
+                    <label for="autoAppend">Auto append 'Subsystem' to name</label>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="createSingleton">
+                    <label for="createSingleton">Create as Singleton pattern</label>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label>Base Class</label>
+                <select id="baseClass">
+                    <option value="SubsystemBase">SubsystemBase</option>
+                    <option value="Subsystem">Subsystem</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- PID Configuration (only shown for PID subsystems) -->
+        <div id="pidConfig" style="display: none;">
+            <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">PID Configuration</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-row">
+                    <label for="pidP">kP (Proportional)</label>
+                    <input type="text" id="pidP" placeholder="0.1" value="0.0">
+                </div>
+                <div class="form-row">
+                    <label for="pidI">kI (Integral)</label>
+                    <input type="text" id="pidI" placeholder="0.0" value="0.0">
+                </div>
+                <div class="form-row">
+                    <label for="pidD">kD (Derivative)</label>
+                    <input type="text" id="pidD" placeholder="0.01" value="0.0">
+                </div>
+                <div class="form-row">
+                    <label for="pidFF">kF (Feedforward)</label>
+                    <input type="text" id="pidFF" placeholder="0.0" value="0.0">
+                </div>
+                <div class="form-row">
+                    <label for="pidMaxVel">Max Velocity</label>
+                    <input type="text" id="pidMaxVel" placeholder="1.0" value="0.0">
+                </div>
+                <div class="form-row">
+                    <label for="pidMaxAccel">Max Acceleration</label>
+                    <input type="text" id="pidMaxAccel" placeholder="1.0" value="0.0">
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">Hardware Devices</h2>
+            <div class="drop-zone" id="dropZone">
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="30%">Device Type</th>
+                            <th width="30%">Variable Name</th>
+                            <th width="15%">CAN ID</th>
+                            <th width="20%">Bus</th>
+                            <th width="5%"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTable"></tbody>
+                </table>
+            </div>
+            <p style="opacity: 0.6; font-size: 0.85em; margin-top: 10px;">
+                💡 Drag device types from the sidebar or click for more info
+            </p>
+        </div>
+    </div>
+
+    <div class="info-popup" id="infoPopup">
+        <button class="close-btn" onclick="closeInfoPopup()">×</button>
+        <h3 id="popupTitle"></h3>
+        <p id="popupDescription"></p>
+        <p id="popupImport"></p>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        const deviceTypes = [
+            { name: 'TalonFX', category: 'Motor Controllers', description: 'Falcon 500 integrated motor controller', import: 'com.ctre.phoenix6.hardware.TalonFX' },
+            { name: 'TalonSRX', category: 'Motor Controllers', description: 'CAN-based motor controller', import: 'com.ctre.phoenix.motorcontrol.can.TalonSRX' },
+            { name: 'VictorSPX', category: 'Motor Controllers', description: 'CAN-based motor controller', import: 'com.ctre.phoenix.motorcontrol.can.VictorSPX' },
+            { name: 'CANSparkMax', category: 'Motor Controllers', description: 'REV Robotics motor controller for NEO motors', import: 'com.revrobotics.CANSparkMax' },
+            { name: 'Pigeon2', category: 'Sensors', description: 'IMU (gyroscope + accelerometer)', import: 'com.ctre.phoenix6.hardware.Pigeon2' },
+            { name: 'CANCoder', category: 'Sensors', description: 'Absolute magnetic encoder', import: 'com.ctre.phoenix6.hardware.CANcoder' },
+            { name: 'DoubleSolenoid', category: 'Pneumatics', description: 'Double-acting pneumatic solenoid', import: 'edu.wpi.first.wpilibj.DoubleSolenoid' },
+            { name: 'Solenoid', category: 'Pneumatics', description: 'Single-acting pneumatic solenoid', import: 'edu.wpi.first.wpilibj.Solenoid' },
+            { name: 'DigitalInput', category: 'Sensors', description: 'Digital input sensor (limit switch, etc.)', import: 'edu.wpi.first.wpilibj.DigitalInput' },
+            { name: 'DutyCycleEncoder', category: 'Sensors', description: 'Absolute encoder using PWM duty cycle', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder' }
+        ];
+
+        const devices = [];
+        let draggedDevice = null;
+
+        function renderDeviceTypes() {
+            const list = document.getElementById('deviceTypeList');
+            list.innerHTML = '';
+
+            const categories = {};
+            deviceTypes.forEach(dt => {
+                if (!categories[dt.category]) categories[dt.category] = [];
+                categories[dt.category].push(dt);
+            });
+
+            Object.keys(categories).forEach(category => {
+                const header = document.createElement('div');
+                header.className = 'sidebar-header';
+                header.textContent = category;
+                header.style.fontSize = '0.75em';
+                header.style.marginTop = '10px';
+                list.appendChild(header);
+
+                categories[category].forEach(dt => {
+                    const item = document.createElement('div');
+                    item.className = 'device-type-item';
+                    item.draggable = true;
+                    item.textContent = dt.name;
+
+                    item.addEventListener('dragstart', (e) => {
+                        draggedDevice = dt.name;
+                        item.classList.add('dragging');
+                        e.dataTransfer.effectAllowed = 'copy';
+                    });
+
+                    item.addEventListener('dragend', () => {
+                        item.classList.remove('dragging');
+                    });
+
+                    item.addEventListener('click', (e) => {
+                        showInfoPopup(dt, e);
+                    });
+
+                    list.appendChild(item);
+                });
+            });
+        }
+
+        const dropZone = document.getElementById('dropZone');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (draggedDevice) {
+                addDeviceOfType(draggedDevice);
+                draggedDevice = null;
+            }
+        });
+
+        function showInfoPopup(deviceType, event) {
+            const popup = document.getElementById('infoPopup');
+            document.getElementById('popupTitle').textContent = deviceType.name;
+            document.getElementById('popupDescription').textContent = deviceType.description;
+            document.getElementById('popupImport').innerHTML = `<strong>Import:</strong> <code>${deviceType.import}</code>`;
+
+            popup.style.display = 'block';
+            popup.style.left = (event.pageX + 10) + 'px';
+            popup.style.top = (event.pageY + 10) + 'px';
+        }
+
+        window.closeInfoPopup = () => {
+            document.getElementById('infoPopup').style.display = 'none';
+        };
+
+        document.addEventListener('click', (e) => {
+            const popup = document.getElementById('infoPopup');
+            if (!e.target.closest('.device-type-item') && !e.target.closest('.info-popup')) {
+                popup.style.display = 'none';
+            }
+        });
+
+        function addDeviceOfType(type) {
+            devices.push({ type: type, name: '', id: '', bus: 'rio' });
+            renderDevices();
+        }
+
+        function renderDevices() {
+            const table = document.getElementById('deviceTable');
+            table.innerHTML = '';
+
+            if (devices.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="5" style="text-align:center; opacity:0.5; padding:20px;">Drag devices here to add them</td>';
+                table.appendChild(row);
+                return;
+            }
+
+            devices.forEach((device, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${device.type}</td>
+                    <td><input type="text" value="${device.name}" onchange="updateDevice(${index}, 'name', this.value)" placeholder="motor"></td>
+                    <td><input type="text" value="${device.id}" onchange="updateDevice(${index}, 'id', this.value)" placeholder="1" style="text-align:center;"></td>
+                    <td><input type="text" value="${device.bus}" onchange="updateDevice(${index}, 'bus', this.value)" placeholder="rio"></td>
+                    <td><button class="btn btn-icon" onclick="deleteDevice(${index})">🗑</button></td>
+                `;
+                table.appendChild(row);
+            });
+        }
+
+        window.updateDevice = (index, field, value) => {
+            devices[index][field] = value;
+        };
+
+        window.deleteDevice = (index) => {
+            devices.splice(index, 1);
+            renderDevices();
+        };
+
+        // Show/hide PID config based on subsystem type
+        document.getElementById('subsystemType').addEventListener('change', (e) => {
+            const pidConfig = document.getElementById('pidConfig');
+            if (e.target.value === 'pid') {
+                pidConfig.style.display = 'block';
+            } else {
+                pidConfig.style.display = 'none';
+            }
+        });
+
+        document.getElementById('generateBtn').addEventListener('click', () => {
+            const name = document.getElementById('subsystemName').value.trim();
+            if (!name) return;
+
+            const subsystemType = document.getElementById('subsystemType').value;
+            const data = {
+                subsystemName: name,
+                subsystemType: subsystemType,
+                autoAppend: document.getElementById('autoAppend').checked,
+                singleton: document.getElementById('createSingleton').checked,
+                baseClass: document.getElementById('baseClass').value,
+                hardware: devices
+            };
+
+            // Add PID config if it's a PID subsystem
+            if (subsystemType === 'pid') {
+                data.pidConfig = {
+                    kP: document.getElementById('pidP').value,
+                    kI: document.getElementById('pidI').value,
+                    kD: document.getElementById('pidD').value,
+                    kF: document.getElementById('pidFF').value,
+                    maxVelocity: document.getElementById('pidMaxVel').value,
+                    maxAcceleration: document.getElementById('pidMaxAccel').value
+                };
+            }
+
+            vscode.postMessage({ command: 'generate', data: data });
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                document.getElementById('generateBtn').click();
+            }
+        });
+
+        renderDeviceTypes();
+        renderDevices();
+    </script>
+</body>
+
+</html>

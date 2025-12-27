@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constants Manager</title>
+    <style>
+        :root {
+            --background: var(--vscode-editor-background);
+            --foreground: var(--vscode-editor-foreground);
+            --sidebar-bg: var(--vscode-sideBar-background);
+            --sidebar-fg: var(--vscode-sideBar-foreground);
+            --list-hover: var(--vscode-list-hoverBackground);
+            --list-active: var(--vscode-list-activeSelectionBackground);
+            --list-active-fg: var(--vscode-list-activeSelectionForeground);
+            --input-bg: var(--vscode-input-background);
+            --input-fg: var(--vscode-input-foreground);
+            --input-border: var(--vscode-input-border);
+            --button-bg: var(--vscode-button-background);
+            --button-fg: var(--vscode-button-foreground);
+            --button-hover: var(--vscode-button-hoverBackground);
+            --border-color: var(--vscode-panel-border);
+            --error-fg: var(--vscode-errorForeground);
+        }
+
+        body {
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            background-color: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-fg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 10px 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            opacity: 0.8;
+            letter-spacing: 0.5px;
+        }
+
+        .list-item {
+            padding: 8px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .list-item:hover {
+            background-color: var(--list-hover);
+        }
+
+        .list-item.selected {
+            background-color: var(--list-active);
+            color: var(--list-active-fg);
+        }
+
+        .module-badge {
+            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            font-weight: 600;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        .list-item.selected .module-badge {
+            background: var(--vscode-list-activeSelectionForeground);
+            color: var(--vscode-list-activeSelectionBackground);
+            opacity: 0.8;
+        }
+
+        .module-card {
+            background: var(--vscode-editor-inactiveSelectionBackground);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .module-card:hover {
+            border-color: var(--vscode-focusBorder);
+            background: var(--list-hover);
+        }
+
+        .module-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .module-card-stats {
+            font-size: 0.85em;
+            opacity: 0.7;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 20px 40px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            font-weight: 500;
+            margin: 0;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            opacity: 0.7;
+            font-weight: normal;
+        }
+
+        td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+        }
+
+        input {
+            width: 100%;
+            background: transparent;
+            border: 1px solid transparent;
+            color: inherit;
+            padding: 4px;
+            font-family: var(--vscode-editor-font-family, 'Consolas', monospace);
+        }
+
+        input:focus {
+            background-color: var(--input-bg);
+            border-color: var(--vscode-focusBorder);
+            outline: none;
+        }
+
+        select {
+            background-color: transparent;
+            color: inherit;
+            border: none;
+            cursor: pointer;
+        }
+
+        select:focus {
+            background-color: var(--input-bg);
+            color: var(--input-fg);
+        }
+
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            padding: 6px 14px;
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: var(--button-hover);
+        }
+
+        .btn-icon {
+            background: transparent;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .btn-icon:hover {
+            opacity: 1;
+            color: var(--error-fg);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            opacity: 0.5;
+            margin-top: 50px;
+        }
+
+        .conflict-badge {
+            color: var(--error-fg);
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        .autocomplete-dropdown {
+            position: absolute;
+            background: var(--vscode-editorSuggestWidget-background);
+            border: 1px solid var(--vscode-editorSuggestWidget-border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            min-width: 250px;
+        }
+
+        .autocomplete-item {
+            padding: 6px 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.selected {
+            background: var(--vscode-editorSuggestWidget-selectedBackground);
+        }
+
+        .autocomplete-label {
+            font-family: var(--vscode-editor-font-family);
+            color: var(--vscode-editorSuggestWidget-foreground);
+        }
+
+        .autocomplete-detail {
+            font-size: 0.75em;
+            opacity: 0.7;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">Modules</div>
+        <div id="categoryList">
+            <!-- List Items -->
+        </div>
+        <div style="padding: 10px;">
+            <button class="btn" style="width:100%; background: transparent; border: 1px dashed var(--border-color);"
+                id="addCategoryBtn">+ New Module</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h1 id="currentCategoryTitle">Select a Module</h1>
+            <button class="btn" id="saveBtn">Save to File</button>
+        </div>
+
+        <div id="constantsTableWrapper" style="display:none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="35%">Constant Name</th>
+                        <th width="15%">Type</th>
+                        <th width="40%">Value</th>
+                        <th width="10%"></th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Rows -->
+                </tbody>
+            </table>
+
+            <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
+                <button class="btn" id="addConstantBtn">+ Add Constant</button>
+                <div style="flex: 1; display: flex; gap: 5px; align-items: center;">
+                    <label style="font-size: 0.85em; opacity: 0.7;">Quick Insert:</label>
+                    <select id="quickInsert"
+                        style="padding: 4px; background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--input-border);">
+                        <option value="">-- Select Constant --</option>
+                        <option value="Math.PI">Math.PI (π = 3.14159...)</option>
+                        <option value="Math.E">Math.E (e = 2.71828...)</option>
+                        <option value="Math.toRadians(180)">Math.toRadians(180)</option>
+                        <option value="Math.sqrt(2)">Math.sqrt(2)</option>
+                        <option value="Double.POSITIVE_INFINITY">Double.POSITIVE_INFINITY</option>
+                        <option value="Double.NEGATIVE_INFINITY">Double.NEGATIVE_INFINITY</option>
+                        <option value="Double.NaN">Double.NaN</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="emptyState" class="empty-state" style="display:none;">
+            Select or create a module to view constants.
+        </div>
+
+        <!-- All Modules Overview -->
+        <div id="allModulesView" style="display:block;">
+            <div style="margin-bottom: 20px;">
+                <p style="opacity: 0.7;">Overview of all constant modules. Select a module from the sidebar to edit.</p>
+            </div>
+            <div id="modulesGrid"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+                <!-- Module cards will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Help -->
+        <div style="position: fixed; bottom: 10px; right: 10px; opacity: 0.5; font-size: 0.75em;">
+            <div>Shortcuts: Ctrl+K (New Constant) | Ctrl+M (New Module) | Ctrl+S (Save)</div>
+        </div>
+    </div>
+
+    <!-- Autocomplete Dropdown -->
+    <div id="autocompleteDropdown" class="autocomplete-dropdown"></div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        let data = { modules: [] };
+        let activeModuleIndex = -1;
+
+        const categoryList = document.getElementById('categoryList');
+        const tableBody = document.getElementById('tableBody');
+        const currentCategoryTitle = document.getElementById('currentCategoryTitle');
+        const constantsTableWrapper = document.getElementById('constantsTableWrapper');
+        const emptyState = document.getElementById('emptyState');
+        const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+
+        // Comprehensive list of Java Math constants and common functions
+        const javaConstants = [
+            { value: 'Math.PI', detail: 'π ≈ 3.14159', type: 'constant' },
+            { value: 'Math.E', detail: 'e ≈ 2.71828', type: 'constant' },
+            { value: 'Math.abs()', detail: 'Absolute value', type: 'function' },
+            { value: 'Math.acos()', detail: 'Arc cosine', type: 'function' },
+            { value: 'Math.asin()', detail: 'Arc sine', type: 'function' },
+            { value: 'Math.atan()', detail: 'Arc tangent', type: 'function' },
+            { value: 'Math.atan2()', detail: 'Angle from x-axis', type: 'function' },
+            { value: 'Math.cbrt()', detail: 'Cube root', type: 'function' },
+            { value: 'Math.ceil()', detail: 'Round up', type: 'function' },
+            { value: 'Math.cos()', detail: 'Cosine', type: 'function' },
+            { value: 'Math.cosh()', detail: 'Hyperbolic cosine', type: 'function' },
+            { value: 'Math.exp()', detail: 'e^x', type: 'function' },
+            { value: 'Math.floor()', detail: 'Round down', type: 'function' },
+            { value: 'Math.hypot()', detail: 'Hypotenuse', type: 'function' },
+            { value: 'Math.log()', detail: 'Natural logarithm', type: 'function' },
+            { value: 'Math.log10()', detail: 'Base-10 logarithm', type: 'function' },
+            { value: 'Math.max()', detail: 'Maximum value', type: 'function' },
+            { value: 'Math.min()', detail: 'Minimum value', type: 'function' },
+            { value: 'Math.pow()', detail: 'Power', type: 'function' },
+            { value: 'Math.random()', detail: 'Random [0,1)', type: 'function' },
+            { value: 'Math.round()', detail: 'Round to nearest', type: 'function' },
+            { value: 'Math.sin()', detail: 'Sine', type: 'function' },
+            { value: 'Math.sinh()', detail: 'Hyperbolic sine', type: 'function' },
+            { value: 'Math.sqrt()', detail: 'Square root', type: 'function' },
+            { value: 'Math.tan()', detail: 'Tangent', type: 'function' },
+            { value: 'Math.tanh()', detail: 'Hyperbolic tangent', type: 'function' },
+            { value: 'Math.toDegrees()', detail: 'Radians to degrees', type: 'function' },
+            { value: 'Math.toRadians()', detail: 'Degrees to radians', type: 'function' },
+            { value: 'Double.POSITIVE_INFINITY', detail: '∞', type: 'constant' },
+            { value: 'Double.NEGATIVE_INFINITY', detail: '-∞', type: 'constant' },
+            { value: 'Double.NaN', detail: 'Not a Number', type: 'constant' },
+            { value: 'Double.MAX_VALUE', detail: 'Max double', type: 'constant' },
+            { value: 'Double.MIN_VALUE', detail: 'Min double', type: 'constant' },
+            { value: 'Integer.MAX_VALUE', detail: 'Max int', type: 'constant' },
+            { value: 'Integer.MIN_VALUE', detail: 'Min int', type: 'constant' },
+        ];
+
+        let autocompleteSelectedIndex = -1;
+        let autocompleteItems = [];
+        let currentInputElement = null;
+
+        // Initial Data for Demo (Extension will overwrite this on load)
+        data = {
+            modules: [
+                {
+                    name: "DriveConstants",
+                    constants: [
+                        { name: "kLeftFrontID", type: "int", value: "1" },
+                        { name: "kRightFrontID", type: "int", value: "2" }
+                    ]
+                }
+            ]
+        };
+        renderCategories();
+
+        // Listeners
+        document.getElementById('addCategoryBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'requestNewModule' });
+        });
+
+        document.getElementById('addConstantBtn').addEventListener('click', () => {
+            if (activeModuleIndex === -1) return;
+            data.modules[activeModuleIndex].constants.push({ name: "kNewConstant", type: "int", value: "0" });
+            renderConstants();
+        });
+
+        document.getElementById('quickInsert').addEventListener('change', (e) => {
+            const value = e.target.value;
+            if (value && activeModuleIndex !== -1) {
+                const type = value.includes('INFINITY') || value.includes('NaN') || value.startsWith('Math.') ? 'double' : 'int';
+                data.modules[activeModuleIndex].constants.push({
+                    name: "kNew" + value.split('.')[1]?.split('(')[0] || "Constant",
+                    type: type,
+                    value: value
+                });
+                renderConstants();
+                e.target.value = ''; // Reset dropdown
+            }
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'save', data: data });
+        });
+
+        window.addEventListener('message', event => {
+            if (event.data.command === 'load') {
+                const previousModuleIndex = activeModuleIndex;
+                data = event.data.data;
+                renderCategories();
+
+                // Preserve the active module if it still exists
+                if (previousModuleIndex >= 0 && previousModuleIndex < data.modules.length) {
+                    activeModuleIndex = previousModuleIndex;
+                } else {
+                    activeModuleIndex = -1;
+                }
+
+                updateView();
+            } else if (event.data.command === 'newModuleCreated') {
+                const name = event.data.name;
+                data.modules.push({ name: name, constants: [] });
+                renderCategories();
+                selectModule(data.modules.length - 1);
+            }
+        });
+
+        function renderCategories() {
+            categoryList.innerHTML = '';
+            data.modules.forEach((mod, index) => {
+                const div = document.createElement('div');
+                div.className = 'list-item ' + (index === activeModuleIndex ? 'selected' : '');
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = mod.name;
+
+                const badge = document.createElement('span');
+                badge.className = 'module-badge';
+                badge.textContent = mod.constants.length;
+                badge.title = `${mod.constants.length} constant${mod.constants.length !== 1 ? 's' : ''}`;
+
+                div.appendChild(nameSpan);
+                div.appendChild(badge);
+                div.onclick = () => selectModule(index);
+                categoryList.appendChild(div);
+            });
+        }
+
+        function selectModule(index) {
+            activeModuleIndex = index;
+            renderCategories(); // update selection styles
+            updateView();
+        }
+
+        function updateView() {
+            if (activeModuleIndex === -1) {
+                emptyState.style.display = 'none';
+                constantsTableWrapper.style.display = 'none';
+                document.getElementById('allModulesView').style.display = 'block';
+                currentCategoryTitle.textContent = "All Modules";
+                renderAllModulesView();
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            document.getElementById('allModulesView').style.display = 'none';
+            constantsTableWrapper.style.display = 'block';
+            currentCategoryTitle.textContent = data.modules[activeModuleIndex].name;
+            renderConstants();
+        }
+
+        function renderAllModulesView() {
+            const grid = document.getElementById('modulesGrid');
+            grid.innerHTML = '';
+
+            if (data.modules.length === 0) {
+                grid.innerHTML = '<p style="opacity:0.5; text-align:center; grid-column: 1/-1;">No modules yet. Click "+ New Module" to create one.</p>';
+                return;
+            }
+
+            data.modules.forEach((mod, index) => {
+                const card = document.createElement('div');
+                card.className = 'module-card';
+                card.onclick = () => selectModule(index);
+
+                const header = document.createElement('div');
+                header.className = 'module-card-header';
+                header.innerHTML = `
+                    <span>${mod.name}</span>
+                    <span class="module-badge">${mod.constants.length}</span>
+                `;
+
+                const stats = document.createElement('div');
+                stats.className = 'module-card-stats';
+
+                if (mod.constants.length === 0) {
+                    stats.textContent = 'No constants defined';
+                } else {
+                    const preview = mod.constants.slice(0, 3).map(c => c.name).join(', ');
+                    const more = mod.constants.length > 3 ? ` +${mod.constants.length - 3} more` : '';
+                    stats.textContent = preview + more;
+                }
+
+                card.appendChild(header);
+                card.appendChild(stats);
+                grid.appendChild(card);
+            });
+        }
+
+        function renderConstants() {
+            const constants = data.modules[activeModuleIndex].constants;
+            tableBody.innerHTML = '';
+
+            // Build maps for conflict checking
+            const usedIds = new Map(); // For duplicate values (CAN IDs, etc.)
+            const usedNames = new Map(); // For duplicate constant names
+
+            data.modules.forEach(m => {
+                m.constants.forEach(c => {
+                    // Check for duplicate values (int type only)
+                    if (c.type === 'int') {
+                        const val = c.value.trim();
+                        usedIds.set(val, (usedIds.get(val) || 0) + 1);
+                    }
+                    // Check for duplicate names (all types, across all modules)
+                    const name = c.name.trim();
+                    usedNames.set(name, (usedNames.get(name) || 0) + 1);
+                });
+            });
+
+            constants.forEach((c, cIndex) => {
+                const tr = document.createElement('tr');
+
+                const isInt = c.type === 'int';
+                const valueCount = usedIds.get(c.value.trim());
+                const nameCount = usedNames.get(c.name.trim());
+
+                const hasValueConflict = isInt && valueCount > 1;
+                const hasNameConflict = nameCount > 1;
+                const hasAnyConflict = hasValueConflict || hasNameConflict;
+
+                // Check if value contains special constants
+                const hasSpecialConstant = /Math\.|Double\.|Float\.|Integer\.|Long\./.test(c.value);
+                const valueStyle = hasValueConflict
+                    ? 'color:var(--error-fg); font-weight:bold;'
+                    : hasSpecialConstant
+                        ? 'color:var(--vscode-symbolIcon-constantForeground, #4FC1FF); font-family: var(--vscode-editor-font-family);'
+                        : '';
+
+                const nameStyle = hasNameConflict ? 'color:var(--error-fg); font-weight:bold;' : '';
+
+                tr.innerHTML = `
+                    <td>
+                        <div style="display:flex; align-items:center;">
+                            <input type="text" value="${c.name}" onchange="updateConstant(${cIndex}, 'name', this.value)" style="${nameStyle}" title="${hasNameConflict ? 'Duplicate constant name!' : ''}">
+                            ${hasNameConflict ? '<span class="conflict-badge">⚠ DUPLICATE NAME</span>' : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <select onchange="updateConstant(${cIndex}, 'type', this.value)">
+                            <option value="int" ${c.type === 'int' ? 'selected' : ''}>int</option>
+                            <option value="double" ${c.type === 'double' ? 'selected' : ''}>double</option>
+                            <option value="boolean" ${c.type === 'boolean' ? 'selected' : ''}>boolean</option>
+                            <option value="String" ${c.type === 'String' ? 'selected' : ''}>String</option>
+                        </select>
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center;">
+                            <input 
+                                type="text" 
+                                value="${c.value}" 
+                                onchange="updateConstant(${cIndex}, 'value', this.value)" 
+                                oninput="handleValueInput(this, event)" 
+                                onkeydown="handleValueKeydown(this, event)"
+                                style="${valueStyle}" 
+                                title="${hasSpecialConstant ? 'Contains Java constant' : ''}">
+                            ${hasValueConflict ? '<span class="conflict-badge">⚠ DUPLICATE</span>' : ''}
+                            ${hasSpecialConstant && !hasValueConflict ? '<span style="font-size:0.75em; opacity:0.6; margin-left:5px;">📐</span>' : ''}
+                        </div>
+                    </td>
+                    <td><button class="btn btn-icon" onclick="deleteConstant(${cIndex})">🗑</button></td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        window.updateConstant = (index, field, value) => {
+            data.modules[activeModuleIndex].constants[index][field] = value;
+            if (field === 'value' || field === 'type') renderConstants();
+        };
+
+        window.handleValueInput = (inputElement, event) => {
+            const value = inputElement.value;
+            showAutocomplete(inputElement, value);
+        };
+
+        window.handleValueKeydown = (inputElement, event) => {
+            handleAutocompleteKeydown(event, inputElement);
+        };
+
+        window.deleteConstant = (index) => {
+            data.modules[activeModuleIndex].constants.splice(index, 1);
+            renderConstants();
+        };
+
+        // Autocomplete functionality
+        function showAutocomplete(inputElement, query) {
+            currentInputElement = inputElement;
+            const filtered = javaConstants.filter(item =>
+                item.value.toLowerCase().includes(query.toLowerCase())
+            );
+
+            if (filtered.length === 0 || query.length < 1) {
+                hideAutocomplete();
+                return;
+            }
+
+            autocompleteItems = filtered;
+            autocompleteSelectedIndex = -1;
+
+            autocompleteDropdown.innerHTML = '';
+            filtered.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                div.innerHTML = `
+                    <span class="autocomplete-label">${item.value}</span>
+                    <span class="autocomplete-detail">${item.detail}</span>
+                `;
+                div.onclick = () => selectAutocompleteItem(item);
+                div.onmouseenter = () => {
+                    autocompleteSelectedIndex = index;
+                    updateAutocompleteSelection();
+                };
+                autocompleteDropdown.appendChild(div);
+            });
+
+            // Position dropdown
+            const rect = inputElement.getBoundingClientRect();
+            autocompleteDropdown.style.left = rect.left + 'px';
+            autocompleteDropdown.style.top = (rect.bottom + 2) + 'px';
+            autocompleteDropdown.style.width = Math.max(rect.width, 250) + 'px';
+            autocompleteDropdown.style.display = 'block';
+        }
+
+        function hideAutocomplete() {
+            autocompleteDropdown.style.display = 'none';
+            autocompleteSelectedIndex = -1;
+            currentInputElement = null;
+        }
+
+        function selectAutocompleteItem(item) {
+            if (currentInputElement) {
+                // Remove parameters from functions, position cursor
+                let value = item.value;
+                if (item.type === 'function') {
+                    value = value.replace('()', '(');
+                }
+                currentInputElement.value = value;
+
+                // Keep focus and position cursor inside parentheses for functions
+                setTimeout(() => {
+                    currentInputElement.focus();
+                    if (item.type === 'function') {
+                        // Position cursor inside the opening parenthesis
+                        currentInputElement.setSelectionRange(value.length, value.length);
+                    }
+                }, 0);
+            }
+            hideAutocomplete();
+        }
+
+        function updateAutocompleteSelection() {
+            const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+            items.forEach((item, index) => {
+                item.classList.toggle('selected', index === autocompleteSelectedIndex);
+            });
+        }
+
+        function handleAutocompleteKeydown(e, inputElement) {
+            if (autocompleteDropdown.style.display === 'none') return false;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                autocompleteSelectedIndex = Math.min(autocompleteSelectedIndex + 1, autocompleteItems.length - 1);
+                updateAutocompleteSelection();
+                return true;
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                autocompleteSelectedIndex = Math.max(autocompleteSelectedIndex - 1, -1);
+                updateAutocompleteSelection();
+                return true;
+            } else if (e.key === 'Enter' && autocompleteSelectedIndex >= 0) {
+                e.preventDefault();
+                selectAutocompleteItem(autocompleteItems[autocompleteSelectedIndex]);
+                return true;
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                hideAutocomplete();
+                return true;
+            }
+            return false;
+        }
+
+        // Close autocomplete when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!autocompleteDropdown.contains(e.target) && e.target !== currentInputElement) {
+                hideAutocomplete();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+K: New Constant (when module is selected)
+            if (e.ctrlKey && e.key === 'k' && activeModuleIndex !== -1) {
+                e.preventDefault();
+                document.getElementById('addConstantBtn').click();
+            }
+            // Ctrl+M: New Module
+            else if (e.ctrlKey && e.key === 'm') {
+                e.preventDefault();
+                document.getElementById('addCategoryBtn').click();
+            }
+            // Ctrl+S: Save
+            else if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                document.getElementById('saveBtn').click();
+            }
+            // Arrow keys for module navigation (when not in input)
+            else if (!e.target.matches('input, select') && data.modules.length > 0) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const nextIndex = activeModuleIndex < data.modules.length - 1 ? activeModuleIndex + 1 : 0;
+                    selectModule(nextIndex);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prevIndex = activeModuleIndex > 0 ? activeModuleIndex - 1 : data.modules.length - 1;
+                    selectModule(prevIndex);
+                } else if (e.key === 'Home') {
+                    e.preventDefault();
+                    selectModule(0);
+                } else if (e.key === 'End') {
+                    e.preventDefault();
+                    selectModule(data.modules.length - 1);
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    activeModuleIndex = -1;
+                    renderCategories();
+                    updateView();
+                }
+            }
+        });
+
+    </script>
+</body>
+
+</html>

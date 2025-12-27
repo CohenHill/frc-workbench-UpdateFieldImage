@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Composer</title>
+    <style>
+        :root {
+            --background: var(--vscode-editor-background);
+            --foreground: var(--vscode-editor-foreground);
+            --sidebar-bg: var(--vscode-sideBar-background);
+            --sidebar-border: var(--vscode-sideBar-border);
+            --node-bg: var(--vscode-editorWidget-background);
+            --node-border: var(--vscode-editorWidget-border);
+            --focus-border: var(--vscode-focusBorder);
+            --button-bg: var(--vscode-button-background);
+            --button-fg: var(--vscode-button-foreground);
+        }
+
+        body {
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            background-color: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 220px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--sidebar-border);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        h3 {
+            margin-top: 0;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .draggable {
+            background: var(--node-bg);
+            border: 1px solid var(--node-border);
+            padding: 8px 12px;
+            cursor: grab;
+            user-select: none;
+            border-radius: 2px;
+            font-size: 0.9em;
+        }
+
+        .draggable:hover {
+            border-color: var(--focus-border);
+        }
+
+        .canvas {
+            flex: 1;
+            position: relative;
+            background-image: radial-gradient(var(--vscode-editor-lineHighlightBorder) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow: auto;
+            padding: 40px;
+        }
+
+        .node-container {
+            background: var(--node-bg);
+            border: 1px solid var(--node-border);
+            border-left: 4px solid var(--focus-border);
+            width: 350px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .node-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            padding-bottom: 5px;
+        }
+
+        .sequence-list {
+            min-height: 100px;
+            background: rgba(0, 0, 0, 0.05);
+            /* Slight tint for drop area */
+            border: 1px dashed var(--vscode-panel-border);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .command-block {
+            padding: 6px 10px;
+            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+            font-size: 0.9em;
+            border-radius: 2px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .command-block.wait {
+            background: var(--vscode-descriptionForeground);
+        }
+
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            padding: 8px;
+            width: 100%;
+            cursor: pointer;
+            margin-top: auto;
+        }
+
+        input {
+            width: 100%;
+            padding: 6px;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h3>Toolbox</h3>
+        <div class="draggable" draggable="true" data-type="Command">Generic Command</div>
+        <div class="draggable" draggable="true" data-type="Instant">Instant Command</div>
+        <div class="draggable" draggable="true" data-type="Wait">Wait Command</div>
+        <div class="draggable" draggable="true" data-type="Parallel">Parallel Group</div>
+
+        <div style="margin-top: auto;">
+            <label style="font-size:0.8em; display:block; margin-bottom:4px;">Command Group Name</label>
+            <input type="text" id="className" placeholder="MyAutoRoutine" value="MyAutoRoutine">
+        </div>
+        <button class="btn" id="exportBtn" style="margin-top: 10px;">Generate Code</button>
+    </div>
+
+    <div class="canvas">
+        <div class="node-container">
+            <div class="node-header">SequentialCommandGroup</div>
+            <div class="sequence-list" id="mainSequence">
+                <!-- Drop here -->
+                <div style="text-align:center; opacity:0.5; padding: 20px; font-size:0.9em; pointer-events:none;">
+                    Drag commands here
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        const draggables = document.querySelectorAll('.draggable');
+        const mainSequence = document.getElementById('mainSequence');
+
+        draggables.forEach(elem => {
+            elem.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('type', e.target.getAttribute('data-type'));
+            });
+        });
+
+        mainSequence.addEventListener('dragover', e => e.preventDefault());
+
+        mainSequence.addEventListener('drop', e => {
+            e.preventDefault();
+            const type = e.dataTransfer.getData('type');
+            if (type) addBlock(type);
+        });
+
+        function addBlock(type) {
+            // Remove placeholder if exists
+            if (mainSequence.firstElementChild && mainSequence.firstElementChild.innerText === "Drag commands here") {
+                mainSequence.innerHTML = '';
+            }
+
+            const div = document.createElement('div');
+            div.className = 'command-block';
+
+            if (type === 'Wait') {
+                div.classList.add('wait');
+                div.textContent = 'Wait 1.0s';
+            } else {
+                div.textContent = type + ' Command';
+            }
+
+            mainSequence.appendChild(div);
+        }
+
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const name = document.getElementById('className').value;
+            const commands = Array.from(mainSequence.children).map(c => c.textContent);
+
+            vscode.postMessage({
+                command: 'generate',
+                data: { name, commands }
+            });
+        });
+    </script>
+</body>
+
+</html>

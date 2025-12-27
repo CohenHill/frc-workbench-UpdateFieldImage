@@ -1,0 +1,172 @@
+{
+  "name": "frc-vs-code-plugin",
+  "displayName": "frc-vs-code-plugin",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "frc-vs-code-plugin.createSubsystem",
+        "title": "FRC: Create Advanced Subsystem"
+      },
+      {
+        "command": "frc-vs-code-plugin.wrapInstantCommand",
+        "title": "FRC: Wrap in InstantCommand"
+      },
+      {
+        "command": "frc-vs-code-plugin.manageConstants",
+        "title": "FRC: Constants Manager"
+      },
+      {
+        "command": "frc-vs-code-plugin.createCommandGroup",
+        "title": "FRC: Command Composer"
+      },
+      {
+        "command": "frc-vs-code-plugin.openManagerFromEditor",
+        "title": "Open in Constants Manager",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "frc-vs-code-plugin.preFlightChecklist",
+        "title": "FRC: Pre-Flight Checklist",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "frc-vs-code-plugin.buildCode",
+        "title": "FRC: Build Code",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "frc-vs-code-plugin.simulateCode",
+        "title": "FRC: Simulate Robot Code",
+        "icon": "$(play)"
+      },
+      {
+        "command": "frc-vs-code-plugin.pidTuner",
+        "title": "FRC: PID Tuner",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "frc-vs-code-plugin.helloWorld",
+        "title": "Hello World"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "frc-vs-code-plugin.openManagerFromEditor",
+          "when": "resourceFilename =~ /^(Constants|RobotMap)\\.java$/",
+          "group": "navigation"
+        },
+        {
+          "command": "frc-vs-code-plugin.buildCode",
+          "when": "resourceLangId == java",
+          "group": "navigation@1"
+        },
+        {
+          "command": "frc-vs-code-plugin.preFlightChecklist",
+          "when": "resourceLangId == java",
+          "group": "navigation@2"
+        },
+        {
+          "command": "frc-vs-code-plugin.simulateCode",
+          "when": "resourceLangId == java",
+          "group": "navigation@3"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "frc-vs-code-plugin.createSubsystem",
+          "when": "editorLangId == java",
+          "group": "frc@1"
+        },
+        {
+          "command": "frc-vs-code-plugin.manageConstants",
+          "when": "editorLangId == java",
+          "group": "frc@2"
+        },
+        {
+          "command": "frc-vs-code-plugin.createCommandGroup",
+          "when": "editorLangId == java",
+          "group": "frc@3"
+        },
+        {
+          "command": "frc-vs-code-plugin.wrapInstantCommand",
+          "when": "editorLangId == java && editorHasSelection",
+          "group": "frc@4"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "frc-vs-code-plugin.createSubsystem",
+          "when": "explorerResourceIsFolder",
+          "group": "frc@1"
+        },
+        {
+          "command": "frc-vs-code-plugin.manageConstants",
+          "when": "explorerResourceIsFolder",
+          "group": "frc@2"
+        },
+        {
+          "command": "frc-vs-code-plugin.createCommandGroup",
+          "when": "explorerResourceIsFolder",
+          "group": "frc@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "FRC Plugin",
+      "properties": {
+        "frcPlugin.constantsFileName": {
+          "type": "string",
+          "enum": [
+            "Constants.java",
+            "RobotMap.java"
+          ],
+          "default": "RobotMap.java",
+          "description": "Name of the constants/robot map file"
+        },
+        "frcPlugin.autoOpenManager": {
+          "type": "string",
+          "enum": [
+            "always",
+            "ask",
+            "never"
+          ],
+          "default": "ask",
+          "enumDescriptions": [
+            "Always open the manager when opening the constants file",
+            "Ask each time",
+            "Never open the manager automatically"
+          ],
+          "description": "Behavior when opening the constants file"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.104.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.1"
+  },
+  "dependencies": {
+    "wpilib-nt-client": "^1.7.2",
+    "wpilib-ws-robot": "^0.0.7"
+  }
+}
