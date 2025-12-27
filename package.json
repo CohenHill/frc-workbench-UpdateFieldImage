@@ -1,14 +1,14 @@
 {
   "name": "frc-workbench",
   "displayName": "FRC Workbench",
-  "description": "The ultimate productivity suite for FRC teams: PID Tuner, PathPlanner Preview, Command Composer, and more.",
-  "version": "0.0.1",
+  "description": "A collection of helpful tools for FRC teams, including PID tuning and PathPlanner previews.",
+  "version": "0.0.2",
   "publisher": "riteshrajas",
   "repository": {
     "type": "git",
     "url": "https://github.com/riteshrajas/frc-vs-code-plugin"
   },
-  "icon": "images/icon.png",
+  "icon": "images/image.png",
   "engines": {
     "vscode": "^1.104.0"
   },

@@ -1,36 +1,36 @@
 # FRC Workbench
 
-**The ultimate productivity suite for FRC teams.**
+**Helpful tools for FRC teams.**
 
-FRC Workbench supercharges your VS Code environment with tools designed specifically for FIRST Robotics Competition development. From tuning PIDs without redeploying to previewing PathPlanner files instantly, this extension helps you code faster and debug smarter.
+FRC Workbench adds a few convenient features to VS Code to help with FIRST Robotics Competition development. It aims to simplify common tasks like tuning PIDs and viewing path files.
 
 ## Features
 
 ### 🛣️ PathPlanner & Auto Preview
-Visualize your `.path` and `.auto` files directly in VS Code without opening the PathPlanner app.
-*   **Instant Preview**: Double-click any `.path` or `.auto` file.
-*   **Full Auto Visualization**: See your entire auto routine, including paths, waits, and commands, on a timeline and the field.
-*   **Hover Effects**: Hover over path commands to see exactly where the robot drives.
+Visualize your `.path` and `.auto` files directly in VS Code.
+*   **Quick Preview**: Double-click any `.path` or `.auto` file to see it.
+*   **Auto Visualization**: See your auto routine steps and paths on the field.
+*   **Hover Effects**: Hover over path commands to see where the robot drives.
 
 ### 🎛️ Live PID Tuner
-Tune your PID controllers in real-time over NetworkTables.
-*   **Live Updates**: Change kP, kI, kD, kF values and see the robot react instantly.
-*   **Save to Code**: One-click save writes the tuned values back to your `Constants.java` file automatically.
+Tune your PID controllers over NetworkTables.
+*   **Live Updates**: Change kP, kI, kD, kF values and see the robot react.
+*   **Save to Code**: Save the tuned values back to your `Constants.java` file.
 
 ### 📝 Constants Manager
-Manage your `RobotMap` or `Constants` file with a clean UI.
-*   **No More Scrolling**: View constants grouped by subsystem/module.
-*   **Safe Editing**: Edit values without risking syntax errors.
+Manage your `RobotMap` or `Constants` file with a simple UI.
+*   **Organized View**: View constants grouped by subsystem/module.
+*   **Safe Editing**: Edit values easily.
 
 ### 🧙‍♂️ Subsystem Wizard
-Generate advanced subsystem boilerplate in seconds.
-*   **Drag & Drop**: Add motors, sensors, and pneumatics visually.
-*   **Modern Code**: Generates WPILib 2024+ Command-Based code.
+Generate subsystem boilerplate code.
+*   **Drag & Drop**: Add motors and sensors visually.
+*   **Modern Code**: Generates WPILib Command-Based code.
 
 ### 🚀 Pre-Flight Checklist
-Ensure your robot is ready for the match.
+A simple checklist to help ensure your robot is ready.
 *   **Interactive Checklist**: Track battery, bumpers, radio, and code status.
-*   **Deploy Integration**: Run the checklist before hitting deploy.
+*   **Deploy Integration**: Run the checklist before deploying.
 
 ## Getting Started
 
