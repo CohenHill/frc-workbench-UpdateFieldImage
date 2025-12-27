@@ -1,15 +1,29 @@
 {
-  "name": "frc-vs-code-plugin",
-  "displayName": "frc-vs-code-plugin",
-  "description": "",
+  "name": "frc-workbench",
+  "displayName": "FRC Workbench",
+  "description": "The ultimate productivity suite for FRC teams: PID Tuner, PathPlanner Preview, Command Composer, and more.",
   "version": "0.0.1",
+  "publisher": "riteshrajas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/riteshrajas/frc-vs-code-plugin"
+  },
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.104.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Visualization",
+    "Programming Languages"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:frc-vs-code-plugin.createSubsystem",
+    "onCommand:frc-vs-code-plugin.manageConstants",
+    "onCommand:frc-vs-code-plugin.pidTuner",
+    "onCustomEditor:frc-vs-code-plugin.pathPlannerPreview",
+    "onCustomEditor:frc-vs-code-plugin.autoPreview"
+  ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
@@ -53,6 +67,10 @@
         "command": "frc-vs-code-plugin.pidTuner",
         "title": "FRC: PID Tuner",
         "icon": "$(graph)"
+      },
+      {
+        "command": "frc-vs-code-plugin.installCustomPID",
+        "title": "FRC: Install Tuneable PID Class"
       },
       {
         "command": "frc-vs-code-plugin.helloWorld",
@@ -150,7 +168,29 @@
           "description": "Behavior when opening the constants file"
         }
       }
-    }
+    },
+    "customEditors": [
+      {
+        "viewType": "frc-vs-code-plugin.pathPlannerPreview",
+        "displayName": "PathPlanner Preview",
+        "selector": [
+          {
+            "filenamePattern": "*.path"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "frc-vs-code-plugin.autoPreview",
+        "displayName": "Auto Routine Preview",
+        "selector": [
+          {
+            "filenamePattern": "*.auto"
+          }
+        ],
+        "priority": "default"
+      }
+    ]
   },
   "scripts": {
     "lint": "eslint .",

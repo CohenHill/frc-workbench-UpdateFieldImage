@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Routine Preview</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-editor-foreground);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            font-family: var(--vscode-font-family);
+        }
+        #header {
+            padding: 15px 20px;
+            background-color: var(--vscode-editorWidget-background);
+            border-bottom: 1px solid var(--vscode-widget-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        #content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        #timeline {
+            width: 300px;
+            border-right: 1px solid var(--vscode-widget-border);
+            overflow-y: auto;
+            background-color: var(--vscode-sideBar-background);
+            padding: 10px;
+        }
+        #preview {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #1e1e1e;
+            position: relative;
+            overflow: hidden;
+        }
+        canvas {
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .command-card {
+            background-color: var(--vscode-list-inactiveSelectionBackground);
+            border: 1px solid var(--vscode-widget-border);
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .command-card:hover {
+            background-color: var(--vscode-list-hoverBackground);
+            transform: translateX(2px);
+        }
+        .command-card.active {
+            background-color: var(--vscode-list-activeSelectionBackground);
+            color: var(--vscode-list-activeSelectionForeground);
+            border-color: var(--vscode-focusBorder);
+        }
+        .command-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+            font-size: 14px;
+        }
+        .command-info {
+            flex: 1;
+        }
+        .command-title {
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+        .command-type {
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+        .badge {
+            font-size: 0.75em;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: var(--vscode-badge-background);
+            color: var(--vscode-badge-foreground);
+        }
+        .path-preview-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.8em;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1 id="autoName">Loading...</h1>
+        <div class="badge" id="commandCount">0 Commands</div>
+    </div>
+    <div id="content">
+        <div id="timeline">
+            <!-- Commands will be injected here -->
+        </div>
+        <div id="preview">
+            <canvas id="fieldCanvas"></canvas>
+            <div class="path-preview-overlay">
+                Hover over path commands to preview
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        const canvas = document.getElementById('fieldCanvas');
+        const ctx = canvas.getContext('2d');
+        const timeline = document.getElementById('timeline');
+        const autoName = document.getElementById('autoName');
+        const commandCount = document.getElementById('commandCount');
+
+        // Field Config
+        const FIELD_WIDTH = 16.54;
+        const FIELD_HEIGHT = 8.21;
+        const PIXELS_PER_METER = 60;
+        
+        canvas.width = FIELD_WIDTH * PIXELS_PER_METER;
+        canvas.height = FIELD_HEIGHT * PIXELS_PER_METER;
+
+        // State
+        let autoData = null;
+        let pathsData = {};
+        let hoveredPathName = null;
+        let fieldImage = new Image();
+        fieldImage.src = '${fieldImageUri}';
+        let fieldImageLoaded = false;
+
+        fieldImage.onload = () => {
+            fieldImageLoaded = true;
+            draw();
+        };
+
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.type === 'update') {
+                try {
+                    autoData = JSON.parse(message.text);
+                    pathsData = message.paths || {};
+                    renderUI();
+                    draw();
+                } catch (e) {
+                    console.error('Error parsing auto JSON', e);
+                }
+            }
+        });
+
+        function transformX(x) {
+            return x * PIXELS_PER_METER;
+        }
+
+        function transformY(y) {
+            return canvas.height - (y * PIXELS_PER_METER);
+        }
+
+        function renderUI() {
+            if (!autoData) return;
+            
+            // Update Header
+            autoName.textContent = autoData.command?.data?.name || "Untitled Auto";
+            
+            // Flatten commands for the timeline
+            timeline.innerHTML = '';
+            const commands = autoData.command?.data?.commands || [];
+            commandCount.textContent = `${commands.length} Steps`;
+
+            commands.forEach((cmd, index) => {
+                const type = cmd.type;
+                const name = cmd.data?.pathName || cmd.data?.name || type;
+                
+                const card = document.createElement('div');
+                card.className = 'command-card';
+                card.innerHTML = `
+                    <div class="command-icon">${getIconForType(type)}</div>
+                    <div class="command-info">
+                        <div class="command-title">${name}</div>
+                        <div class="command-type">${formatType(type)}</div>
+                    </div>
+                `;
+                
+                card.addEventListener('mouseenter', () => {
+                    document.querySelectorAll('.command-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    if (type === 'path' && cmd.data?.pathName) {
+                        hoveredPathName = cmd.data.pathName;
+                        draw();
+                    }
+                });
+
+                card.addEventListener('mouseleave', () => {
+                    card.classList.remove('active');
+                    hoveredPathName = null;
+                    draw();
+                });
+
+                timeline.appendChild(card);
+            });
+        }
+
+        function getIconForType(type) {
+            if (type === 'path') return '🛣️';
+            if (type === 'wait') return '⏱️';
+            if (type === 'named') return '🏷️';
+            if (type === 'sequential') return '⬇️';
+            if (type === 'parallel') return '🔀';
+            return '⚡';
+        }
+
+        function formatType(type) {
+            return type.charAt(0).toUpperCase() + type.slice(1);
+        }
+
+        function drawPath(data, isHovered) {
+            if (!data || !data.waypoints || data.waypoints.length < 2) return;
+
+            const waypoints = data.waypoints;
+            ctx.strokeStyle = isHovered ? '#FFFF00' : '#00FF00'; // Yellow if hovered, else Green
+            ctx.lineWidth = isHovered ? 5 : 3;
+            ctx.globalAlpha = isHovered ? 1.0 : 0.6;
+            
+            ctx.beginPath();
+            const start = waypoints[0];
+            ctx.moveTo(transformX(start.anchor.x), transformY(start.anchor.y));
+
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                const p0 = waypoints[i];
+                const p1 = waypoints[i+1];
+                const cp1 = p0.nextControl || p0.anchor;
+                const cp2 = p1.prevControl || p1.anchor;
+
+                ctx.bezierCurveTo(
+                    transformX(cp1.x), transformY(cp1.y),
+                    transformX(cp2.x), transformY(cp2.y),
+                    transformX(p1.anchor.x), transformY(p1.anchor.y)
+                );
+            }
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        }
+
+        function draw() {
+            // Clear
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Field
+            if (fieldImageLoaded) {
+                ctx.drawImage(fieldImage, 0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = '#222';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#444';
+                ctx.strokeRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Draw Paths
+            if (autoData && autoData.command && autoData.command.data && autoData.command.data.commands) {
+                const commands = autoData.command.data.commands;
+                commands.forEach(cmd => {
+                    if (cmd.type === 'path' && cmd.data && cmd.data.pathName) {
+                        const pathName = cmd.data.pathName;
+                        const pathData = pathsData[pathName];
+                        if (pathData) {
+                            const isHovered = (pathName === hoveredPathName);
+                            drawPath(pathData, isHovered);
+                        }
+                    }
+                });
+            }
+        }
+
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PathPlanner Preview</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-editor-foreground);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #controls {
+            padding: 10px;
+            background-color: var(--vscode-editorWidget-background);
+            border-bottom: 1px solid var(--vscode-widget-border);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            padding: 20px;
+        }
+        canvas {
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0);
+            background-color: #33333300;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <span>PathPlanner Preview</span>
+        <!-- Add more controls here if needed -->
+    </div>
+    <div id="canvas-container">
+        <canvas id="fieldCanvas"></canvas>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+        const canvas = document.getElementById('fieldCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Field dimensions (approximate for standard FRC field, e.g., Crescendo 2024 is ~16.54m x 8.21m)
+        const FIELD_WIDTH = 16.54;
+        const FIELD_HEIGHT = 8.21;
+        const PIXELS_PER_METER = 60; // Scale factor
+
+        // Set canvas size
+        canvas.width = FIELD_WIDTH * PIXELS_PER_METER;
+        canvas.height = FIELD_HEIGHT * PIXELS_PER_METER;
+
+        let currentPathData = null;
+        const fieldImage = new Image();
+        fieldImage.src = '${fieldImageUri}';
+        let fieldImageLoaded = false;
+
+        fieldImage.onload = () => {
+            fieldImageLoaded = true;
+            draw();
+        };
+
+        // Handle messages from the extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+            switch (message.type) {
+                case 'update':
+                    try {
+                        const text = message.text;
+                        if (text) {
+                            currentPathData = JSON.parse(text);
+                            draw();
+                        }
+                    } catch (e) {
+                        console.error('Error parsing path JSON', e);
+                    }
+                    break;
+            }
+        });
+
+        function transformX(x) {
+            return x * PIXELS_PER_METER;
+        }
+
+        function transformY(y) {
+            // Flip Y axis (Field 0,0 is bottom-left, Canvas 0,0 is top-left)
+            return canvas.height - (y * PIXELS_PER_METER);
+        }
+
+        function drawField() {
+            // Background
+            if (fieldImageLoaded) {
+                ctx.drawImage(fieldImage, 0, 0, canvas.width, canvas.height);
+            } else {
+                // Transparent/Empty background if no image
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Field border
+           
+        }
+
+        function drawPath(data) {
+            if (!data || !data.waypoints || data.waypoints.length < 2) return;
+
+            const waypoints = data.waypoints;
+
+            // Draw Splines
+            ctx.strokeStyle = '#00FF00'; // Green path
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            // Move to first point
+            const start = waypoints[0];
+            ctx.moveTo(transformX(start.anchor.x), transformY(start.anchor.y));
+
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                const p0 = waypoints[i];
+                const p1 = waypoints[i+1];
+
+                // Cubic Bezier: Start -> Control1 -> Control2 -> End
+                // p0.nextControl is Control 1
+                // p1.prevControl is Control 2
+                
+                // If control points are null, use anchor (straight line fallback, though PathPlanner usually has them)
+                const cp1 = p0.nextControl || p0.anchor;
+                const cp2 = p1.prevControl || p1.anchor;
+
+                ctx.bezierCurveTo(
+                    transformX(cp1.x), transformY(cp1.y),
+                    transformX(cp2.x), transformY(cp2.y),
+                    transformX(p1.anchor.x), transformY(p1.anchor.y)
+                );
+            }
+            ctx.stroke();
+
+            // Draw Waypoints and Control Points
+            waypoints.forEach(wp => {
+                const ax = transformX(wp.anchor.x);
+                const ay = transformY(wp.anchor.y);
+
+                // Draw Anchor
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(ax, ay, 5, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Draw Control Points and handles
+                ctx.strokeStyle = '#AAAAAA';
+                ctx.lineWidth = 1;
+
+                if (wp.prevControl) {
+                    const cx = transformX(wp.prevControl.x);
+                    const cy = transformY(wp.prevControl.y);
+                    ctx.fillStyle = '#FFA500'; // Orange
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(cx, cy);
+                    ctx.stroke();
+                }
+
+                if (wp.nextControl) {
+                    const cx = transformX(wp.nextControl.x);
+                    const cy = transformY(wp.nextControl.y);
+                    ctx.fillStyle = '#FFA500'; // Orange
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(cx, cy);
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawField();
+            if (currentPathData) {
+                drawPath(currentPathData);
+            }
+        }
+
+        // Initial draw
+        drawField();
+    </script>
+</body>
+</html>

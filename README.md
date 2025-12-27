@@ -1,65 +1,63 @@
-# frc-vs-code-plugin README
+# FRC Workbench
 
-This is the README for your extension "frc-vs-code-plugin". After writing up a brief description, we recommend including the following sections.
+**The ultimate productivity suite for FRC teams.**
+
+FRC Workbench supercharges your VS Code environment with tools designed specifically for FIRST Robotics Competition development. From tuning PIDs without redeploying to previewing PathPlanner files instantly, this extension helps you code faster and debug smarter.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+### 🛣️ PathPlanner & Auto Preview
+Visualize your `.path` and `.auto` files directly in VS Code without opening the PathPlanner app.
+*   **Instant Preview**: Double-click any `.path` or `.auto` file.
+*   **Full Auto Visualization**: See your entire auto routine, including paths, waits, and commands, on a timeline and the field.
+*   **Hover Effects**: Hover over path commands to see exactly where the robot drives.
 
-For example if there is an image subfolder under your extension project workspace:
+### 🎛️ Live PID Tuner
+Tune your PID controllers in real-time over NetworkTables.
+*   **Live Updates**: Change kP, kI, kD, kF values and see the robot react instantly.
+*   **Save to Code**: One-click save writes the tuned values back to your `Constants.java` file automatically.
 
-\!\[feature X\]\(images/feature-x.png\)
+### 📝 Constants Manager
+Manage your `RobotMap` or `Constants` file with a clean UI.
+*   **No More Scrolling**: View constants grouped by subsystem/module.
+*   **Safe Editing**: Edit values without risking syntax errors.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+### 🧙‍♂️ Subsystem Wizard
+Generate advanced subsystem boilerplate in seconds.
+*   **Drag & Drop**: Add motors, sensors, and pneumatics visually.
+*   **Modern Code**: Generates WPILib 2024+ Command-Based code.
+
+### 🚀 Pre-Flight Checklist
+Ensure your robot is ready for the match.
+*   **Interactive Checklist**: Track battery, bumpers, radio, and code status.
+*   **Deploy Integration**: Run the checklist before hitting deploy.
+
+## Getting Started
+
+1.  Install the extension.
+2.  Open your FRC robot project.
+3.  Use the Command Palette (`Ctrl+Shift+P`) and type `FRC:` to see available commands.
+4.  Open a `.path` file to try the preview!
 
 ## Requirements
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+*   A WPILib robot project (Java).
+*   VS Code 1.90+.
 
 ## Extension Settings
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+*   `frcPlugin.constantsFileName`: The name of your constants file (default: `RobotMap.java`).
+*   `frcPlugin.autoOpenManager`: Whether to auto-open the manager when clicking the constants file.
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+*   Path preview requires a `field.png` in the extension folder (will be bundled in future releases).
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+### 0.0.1
+*   Initial release with PathPlanner Preview, PID Tuner, and Constants Manager.
 
 ---
 
-## Working with Markdown
-
-You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+**Good Luck Teams!** 🤖🚀

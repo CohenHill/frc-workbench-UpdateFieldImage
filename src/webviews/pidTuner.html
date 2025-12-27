@@ -241,7 +241,11 @@
 
     <div class="main-content">
         <div class="toolbar">
-            <button class="btn" id="connectBtn">Connect to Robot</button>
+            <div class="connection-controls" style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="ipAddress" placeholder="Team # or IP (e.g. 1234 or 10.12.34.2)" 
+                       style="background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--input-border); padding: 6px; border-radius: 2px; width: 200px;">
+                <button class="btn" id="connectBtn">Connect</button>
+            </div>
             <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
             <div style="flex: 1"></div>
             <button class="btn" id="saveBtn" disabled>Save to Constants</button>
@@ -267,7 +271,8 @@
 
         // Connect button
         document.getElementById('connectBtn').addEventListener('click', () => {
-            vscode.postMessage({ command: 'connect' });
+            const ip = document.getElementById('ipAddress').value || '127.0.0.1';
+            vscode.postMessage({ command: 'connect', address: ip });
         });
 
         // Refresh button
@@ -299,6 +304,13 @@
                     break;
                 case 'pidValues':
                     updatePIDValues(message.controller, message.values);
+                    break;
+                case 'saveResult':
+                    if (message.ok) {
+                        alert('Saved PID values to constants file.');
+                    } else {
+                        alert('Failed to save PID values: ' + (message.error || 'Unknown error'));
+                    }
                     break;
             }
         });

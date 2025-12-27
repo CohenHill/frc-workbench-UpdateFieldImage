@@ -1,6 +1,9 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
+const { Client } = require('wpilib-nt-client');
+const PathPlannerPreviewProvider = require('./src/extension/pathPlannerPreviewProvider');
+const AutoPreviewProvider = require('./src/extension/autoPreviewProvider');
 
 // Persistent state key
 const ALWAYS_OPEN_MANAGER_KEY = "frcplugin.alwaysOpenManager";
@@ -10,6 +13,34 @@ const ALWAYS_OPEN_MANAGER_KEY = "frcplugin.alwaysOpenManager";
  */
 function activate(context) {
 	console.log('FRC Plugin Active');
+
+	// Register PathPlanner Preview Provider
+	context.subscriptions.push(
+		vscode.window.registerCustomEditorProvider(
+			'frc-vs-code-plugin.pathPlannerPreview',
+			new PathPlannerPreviewProvider(context),
+			{
+				webviewOptions: {
+					retainContextWhenHidden: true,
+				},
+				supportsMultipleEditorsPerDocument: false,
+			}
+		)
+	);
+
+	// Register Auto Preview Provider
+	context.subscriptions.push(
+		vscode.window.registerCustomEditorProvider(
+			'frc-vs-code-plugin.autoPreview',
+			new AutoPreviewProvider(context),
+			{
+				webviewOptions: {
+					retainContextWhenHidden: true,
+				},
+				supportsMultipleEditorsPerDocument: false,
+			}
+		)
+	);
 
 	// Helper to get configured file name
 	function getConstantsFileName() {
@@ -257,7 +288,7 @@ function activate(context) {
 	const pidTunerCmd = vscode.commands.registerCommand('frc-vs-code-plugin.pidTuner', () => {
 		const panel = vscode.window.createWebviewPanel(
 			'pidTuner',
-			'🎛️ PID Tuner',
+			'PID Tuner',
 			vscode.ViewColumn.One,
 			{
 				enableScripts: true,
@@ -266,344 +297,329 @@ function activate(context) {
 		);
 
 		const htmlPath = path.join(context.extensionPath, 'src', 'webviews', 'pidTuner.html');
-		panel.webview.html = fs.readFileSync(htmlPath, 'utf8');
+		let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+		panel.webview.html = htmlContent;
 
-		let ntClient = null;
-		let isConnected = false;
-		let pidControllers = {};
+		const client = new Client();
+		const controllers = new Map(); // Name -> Path
+		/** @type {Set<string>} */
+		const announcedControllers = new Set();
 
-		// Handle messages from webview
-		panel.webview.onDidReceiveMessage(async message => {
-			switch (message.command) {
-				case 'connect':
-					try {
-						// Import NetworkTables client
-						const Client = require('wpilib-nt-client').Client;
+		function pushControllers() {
+			panel.webview.postMessage({
+				command: 'controllers',
+				controllers: Array.from(controllers.keys()).sort()
+			});
+		}
 
-						// Ask user for connection type
-						const connectionType = await vscode.window.showQuickPick(
-							['Localhost (Simulation)', 'Robot (10.TE.AM.2)', 'Custom IP'],
-							{ placeHolder: 'Select connection type' }
-						);
-
-						if (!connectionType) return;
-
-						let host = 'localhost';
-						if (connectionType.includes('Robot')) {
-							const teamNumber = await vscode.window.showInputBox({
-								prompt: 'Enter team number',
-								placeHolder: '201'
-							});
-							if (!teamNumber) return;
-							const team = parseInt(teamNumber);
-							host = `10.${Math.floor(team / 100)}.${team % 100}.2`;
-						} else if (connectionType.includes('Custom')) {
-							const customHost = await vscode.window.showInputBox({
-								prompt: 'Enter robot IP address',
-								placeHolder: '10.2.1.2'
-							});
-							if (!customHost) return;
-							host = customHost;
-						}
-
-						// Create NetworkTables client
-						ntClient = new Client();
-
-						ntClient.clientName = 'Desktop Support FRC Plugin';
-
-
-
-
-
-						// Listen for NT updates
-						ntClient.addListener((key, value, flags) => {
-							console.log('NT Key:', key, 'Value:', value); // Debug logging
-							// Check if it's a PID value - support multiple formats
-							if (key && (key.includes('/PID/') || key.includes('PIDController') ||
-								key.includes('/p') || key.includes('/i') || key.includes('/d') || key.includes('/f'))) {
-								updatePIDFromNT(key, value);
-							}
-						});
-
-						// Start connection
-						ntClient.start((err) => {
-							if (!err) {
-								isConnected = true;
-								panel.webview.postMessage({
-									command: 'connectionStatus',
-									connected: true
-								});
-								vscode.window.showInformationMessage(`Connected to robot at ${host}`);
-								setTimeout(() => scanForPIDControllers(), 2000);
-							} else {
-								isConnected = false;
-								vscode.window.showErrorMessage(`Failed to connect to ${host}`);
-								panel.webview.postMessage({
-									command: 'connectionStatus',
-									connected: false
-								});
-							}
-						}, host);
-
-						// Poll connection status
-						const statusInterval = setInterval(() => {
-							if (!ntClient) {
-								clearInterval(statusInterval);
-								return;
-							}
-							const connected = ntClient.isConnected();
-							if (connected !== isConnected) {
-								isConnected = connected;
-								panel.webview.postMessage({
-									command: 'connectionStatus',
-									connected: isConnected
-								});
-								if (!connected) {
-									vscode.window.showWarningMessage('Disconnected from robot');
-								}
-							}
-						}, 1000);
-
-						// Cleanup on panel close
-						panel.onDidDispose(() => {
-							clearInterval(statusInterval);
-							if (ntClient) {
-								ntClient.stop();
-							}
-						});
-
-					} catch (error) {
-						vscode.window.showErrorMessage(`Failed to connect: ${error.message}`);
-						panel.webview.postMessage({
-							command: 'connectionStatus',
-							connected: false
-						});
-					}
-					break;
-
-				case 'getValues':
-					if (isConnected && pidControllers[message.controller]) {
-						panel.webview.postMessage({
-							command: 'pidValues',
-							controller: message.controller,
-							values: pidControllers[message.controller]
-						});
-					} else {
-						// Send default values
-						panel.webview.postMessage({
-							command: 'pidValues',
-							controller: message.controller,
-							values: { kP: 0.0, kI: 0.0, kD: 0.0, kF: 0.0 }
-						});
-					}
-					break;
-
-				case 'updatePID':
-					if (isConnected && ntClient) {
-						// Send to NetworkTables
-						const ntKey = `/SmartDashboard/${message.controller}/PID/${message.param}`;
-						// In wpilib-nt-client, we need to find the ID or use Assign
-						const id = ntClient.getKeyID(ntKey);
-						if (id !== undefined && id !== -1) {
-							ntClient.Update(id, message.value);
-						} else {
-							// Try without leading slash
-							const cleanKey = ntKey.startsWith('/') ? ntKey.substring(1) : ntKey;
-							const altId = ntClient.getKeyID(cleanKey);
-							if (altId !== undefined && altId !== -1) {
-								ntClient.Update(altId, message.value);
-							} else {
-								ntClient.Assign(message.value, ntKey);
-							}
-						}
-
-						// Update local cache
-						if (!pidControllers[message.controller]) {
-							pidControllers[message.controller] = {};
-						}
-						pidControllers[message.controller][message.param] = message.value;
-					}
-					break;
-
-				case 'save':
-					await savePIDToConstants(message.controller, message.values);
-					vscode.window.showInformationMessage(`PID values for ${message.controller} saved to Constants!`);
-					break;
-
-				case 'refresh':
-					if (isConnected) {
-						scanForPIDControllers();
-					}
-					break;
+		/**
+		 * Try to register a controller path (base path that contains p/i/d entries).
+		 * @param {string} basePath
+		 */
+		function registerControllerPath(basePath) {
+			const name = basePath.split('/').pop();
+			if (!name) return;
+			if (!controllers.has(name)) {
+				controllers.set(name, basePath);
 			}
-		});
+			if (!announcedControllers.has(name)) {
+				announcedControllers.add(name);
+				console.log(`[PID Tuner] Found controller '${name}' at '${basePath}'`);
+				pushControllers();
+			}
+		}
 
-		function scanForPIDControllers() {
-			if (!ntClient) {
-				console.log('PID Tuner: No NetworkTables client found.');
+		/**
+		 * Heuristic detection for WPILib PID sendables.
+		 * WPILib commonly publishes Sendables under:
+		 *  - /SmartDashboard/<Name>/.name
+		 *  - /Shuffleboard/<Tab>/<Widget>/.name
+		 *  - /SmartDashboard/PIDTuning/<Name>/.name (our hidden group)
+		 */
+		function tryDetectFromKey(key, val) {
+			// Primary: /.name value is typically the sendable name.
+			if (key.endsWith('/.name') && typeof val === 'string') {
+				// basePath is the table containing sendable properties
+				const basePath = key.substring(0, key.length - '/.name'.length);
+				// Only accept our hidden group or paths that look like Sendable tables
+				if (
+					basePath.startsWith('/SmartDashboard/PIDTuning/') ||
+					basePath.startsWith('/SmartDashboard/') ||
+					basePath.startsWith('/Shuffleboard/')
+				) {
+					registerControllerPath(basePath);
+				}
 				return;
 			}
 
-			const keys = ntClient.getKeys();
+			// Fallback: some setups may still provide /.type
+			if (key.endsWith('/.type') && val === 'PIDController') {
+				registerControllerPath(key.substring(0, key.length - '/.type'.length));
+				return;
+			}
+		}
 
-			console.log('--- PID Tuner: Scanning NetworkTables ---');
-			console.log(`Total Keys Found: ${keys ? keys.length : 0}`);
+		// Listener for new entries
+		client.addListener((key, val, valType, msgType, id, flags) => {
+			// Log all keys for debugging
+			// (leave enabled for now; can be gated behind a setting later)
+			console.log(`NT Update: ${key} = ${val} (${valType})`);
 
-			const controllers = new Set();
+			tryDetectFromKey(key, val);
+		});
 
-			if (keys && Array.isArray(keys)) {
-				keys.forEach(key => {
-					// Split by slash and filter out empty strings (handles leading/trailing/multiple slashes)
-					const parts = key.split('/').filter(p => p.trim().length > 0);
-
-					// Find the index of something that looks like a PID constant (p, i, d, f, kP, kI, kD, kF)
-					const paramIndex = parts.findIndex(p => {
-						const up = p.toUpperCase();
-						return ['P', 'I', 'D', 'F', 'KP', 'KI', 'KD', 'KF'].includes(up);
-					});
-
-					if (paramIndex >= 1) {
-						let potentialName = parts[paramIndex - 1];
-
-						// If the parent is just "PID", use the grandparent (e.g. /Subsystem/PID/p)
-						if (potentialName.toUpperCase() === 'PID' && paramIndex >= 2) {
-							potentialName = parts[paramIndex - 2];
-						}
-
-						// Filter out common root table names
-						const ignored = ['SMARTDASHBOARD', 'SHUFFLEBOARD', '.METADATA', 'LIVEWINDOW'];
-						if (!ignored.includes(potentialName.toUpperCase())) {
-							if (!controllers.has(potentialName)) {
-								console.log(`✅ MATCH: Found "${potentialName}" from key "${key}"`);
-								controllers.add(potentialName);
+		// Handle messages from the webview
+		panel.webview.onDidReceiveMessage(
+			message => {
+				switch (message.command) {
+					case 'connect':
+						let address = message.address;
+						// If it's a team number (e.g. 1234), convert to 10.12.34.2
+						if (!address.includes('.') && !address.includes(':') && address !== 'localhost') {
+							const team = parseInt(address);
+							if (!isNaN(team)) {
+								const te = Math.floor(team / 100);
+								const am = team % 100;
+								address = `10.${te}.${am}.2`;
 							}
 						}
-					}
-				});
-			}
+						
+						// Handle localhost explicitly
+						if (address === 'localhost') address = '127.0.0.1';
 
-			const controllerList = Array.from(controllers);
-			console.log(`Scan Complete. Controllers detected: [${controllerList.join(', ')}]`);
-			console.log('---------------------------------------');
+						client.start((isConnected, err) => {
+							panel.webview.postMessage({ command: 'connectionStatus', connected: isConnected });
+							if (err) {
+								vscode.window.showErrorMessage(`Connection failed: ${err}`);
+							}
+							// After connecting, clear any stale list and wait for updates.
+							// Some NT servers won't replay retained values until after subscription.
+							// The listener will populate controllers as values arrive.
+						}, address);
+						break;
 
-			panel.webview.postMessage({
-				command: 'controllers',
-				controllers: controllerList
-			});
-		}
+					case 'refresh':
+						// Force UI to update with whatever we've already seen.
+						panel.webview.postMessage({
+							command: 'controllers',
+							controllers: Array.from(controllers.keys()).sort()
+						});
+						break;
 
-		function updatePIDFromNT(key, value) {
-			const cleanKey = key.startsWith('/') ? key.substring(1) : key;
-			const parts = cleanKey.split('/');
+					case 'getValues':
+						const name = message.controller;
+						const basePath = controllers.get(name);
+						if (basePath) {
+							// Helper to get value safely
+							const getVal = (...subKeys) => {
+								for (const subKey of subKeys) {
+									const id = client.getKeyID(basePath + '/' + subKey);
+									if (id) return client.getEntry(id).val;
+								}
+								return 0;
+							};
 
-			const paramIndex = parts.findIndex(p => {
-				const up = p.toUpperCase();
-				return ['P', 'I', 'D', 'F', 'KP', 'KI', 'KD', 'KF'].includes(up);
-			});
+							panel.webview.postMessage({
+								command: 'pidValues',
+								controller: name,
+								values: {
+									kP: getVal('p', 'kP'),
+									kI: getVal('i', 'kI'),
+									kD: getVal('d', 'kD'),
+									kF: getVal('f', 'kF')
+								}
+							});
+						}
+						break;
 
-			if (paramIndex >= 1) {
-				let controllerName = parts[paramIndex - 1];
-				const paramNameRaw = parts[paramIndex];
+					case 'updatePID':
+						const controllerName = message.controller;
+						const param = message.param; // kP, kI, kD, kF
+						const value = message.value;
 
-				// Standardize parameter name for the UI (kP, kI, kD, kF)
-				let paramName = 'kP';
-				const upperParam = paramNameRaw.toUpperCase();
-				if (upperParam.includes('P')) paramName = 'kP';
-				else if (upperParam.includes('I')) paramName = 'kI';
-				else if (upperParam.includes('D')) paramName = 'kD';
-				else if (upperParam.includes('F')) paramName = 'kF';
+						const controllerPath = controllers.get(controllerName);
+						if (controllerPath) {
+							// Support both WPILib naming conventions.
+							const keyMap = {
+								kP: ['p', 'kP'],
+								kI: ['i', 'kI'],
+								kD: ['d', 'kD'],
+								kF: ['f', 'kF']
+							};
+							const keys = keyMap[param];
+							if (keys) {
+								// Prefer the key that already exists, otherwise write the first option.
+								let targetKey = keys[0];
+								for (const k of keys) {
+									const existingId = client.getKeyID(controllerPath + '/' + k);
+									if (existingId) {
+										targetKey = k;
+										break;
+									}
+								}
+								client.Assign(value, controllerPath + '/' + targetKey);
+							}
+						}
+						break;
 
-				if (controllerName.toUpperCase() === 'PID' && paramIndex >= 2) {
-					controllerName = parts[paramIndex - 2];
+					case 'save':
+						try {
+							const workspaceFolders = vscode.workspace.workspaceFolders;
+							if (!workspaceFolders) {
+								vscode.window.showErrorMessage('No workspace open');
+								return;
+							}
+
+							const rootPath = workspaceFolders[0].uri.fsPath;
+							const fileName = getConstantsFileName();
+							const constantsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', fileName);
+							const dir = path.dirname(constantsPath);
+							if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+							const controller = message.controller;
+							const values = message.values || {};
+							const kP = Number(values.kP ?? 0);
+							const kI = Number(values.kI ?? 0);
+							const kD = Number(values.kD ?? 0);
+							const kF = Number(values.kF ?? 0);
+
+							let content = '';
+							if (fs.existsSync(constantsPath)) {
+								content = fs.readFileSync(constantsPath, 'utf8');
+							}
+
+							// If file doesn't exist or isn't a Java constants file yet, create a minimal skeleton.
+							if (!content.includes('class ') || !content.includes('package frc.robot')) {
+								content = `package frc.robot;\n\npublic final class ${fileName.replace(/\.java$/i, '')} {\n  private ${fileName.replace(/\.java$/i, '')}() {}\n}\n`;
+							}
+
+							// Ensure PIDConstants class exists.
+							if (!/public\s+static\s+final\s+class\s+PIDConstants\s*\{/.test(content)) {
+								// Insert before last closing brace of the outer class.
+								const idx = content.lastIndexOf('}');
+								if (idx !== -1) {
+									const block =
+										`\n\n  public static final class PIDConstants {\n` +
+										`    private PIDConstants() {}\n` +
+										`  }\n`;
+									content = content.slice(0, idx) + block + content.slice(idx);
+								}
+							}
+
+							// Insert/update the controller inner class.
+							const safeName = String(controller || 'Controller').replace(/[^A-Za-z0-9_]/g, '_');
+							const innerClassName = `${safeName}PID`;
+
+							const pidBlock =
+								`\n    public static final class ${innerClassName} {\n` +
+								`      public static final double kP = ${kP};\n` +
+								`      public static final double kI = ${kI};\n` +
+								`      public static final double kD = ${kD};\n` +
+								`      public static final double kF = ${kF};\n` +
+								`      private ${innerClassName}() {}\n` +
+								`    }\n`;
+
+							// Replace existing block if present.
+							const pidConstantsStart = content.search(/public\s+static\s+final\s+class\s+PIDConstants\s*\{/);
+							if (pidConstantsStart !== -1) {
+								// Find scope of PIDConstants class (naive brace matching).
+								let i = content.indexOf('{', pidConstantsStart);
+								let depth = 0;
+								let end = -1;
+								for (; i < content.length; i++) {
+									const ch = content[i];
+									if (ch === '{') depth++;
+									else if (ch === '}') {
+										depth--;
+										if (depth === 0) {
+											end = i;
+											break;
+										}
+									}
+								}
+
+								if (end !== -1) {
+									const pidConstantsBody = content.slice(pidConstantsStart, end + 1);
+									const existingClassRe = new RegExp(`public\\s+static\\s+final\\s+class\\s+${innerClassName}\\s*\\{[\\s\\S]*?\\n\\s*\\}`, 'm');
+									let newPidConstantsBody;
+									if (existingClassRe.test(pidConstantsBody)) {
+										newPidConstantsBody = pidConstantsBody.replace(existingClassRe, pidBlock.trim());
+									} else {
+										// Insert before the closing brace of PIDConstants
+										const insertAt = pidConstantsBody.lastIndexOf('}');
+										newPidConstantsBody = pidConstantsBody.slice(0, insertAt) + pidBlock + pidConstantsBody.slice(insertAt);
+									}
+
+									content = content.slice(0, pidConstantsStart) + newPidConstantsBody + content.slice(end + 1);
+								}
+							}
+
+							fs.writeFileSync(constantsPath, content);
+							vscode.window.showInformationMessage(`Saved ${controller} PID values to ${fileName}`);
+							panel.webview.postMessage({ command: 'saveResult', ok: true });
+						} catch (e) {
+							vscode.window.showErrorMessage(`Failed to save PID constants: ${e?.message ?? e}`);
+							panel.webview.postMessage({ command: 'saveResult', ok: false, error: String(e?.message ?? e) });
+						}
+						break;
 				}
+			},
+			undefined,
+			context.subscriptions
+		);
 
-				if (!pidControllers[controllerName]) {
-					pidControllers[controllerName] = {};
-				}
-				pidControllers[controllerName][paramName] = value;
-
-				// Send update to webview
-				panel.webview.postMessage({
-					command: 'pidValues',
-					controller: controllerName,
-					values: pidControllers[controllerName]
-				});
-			}
-		}
-
-		// Cleanup on panel close
 		panel.onDidDispose(() => {
-			if (ntClient) {
-				ntClient.stop();
-			}
-		});
+			client.destroy();
+		}, null, context.subscriptions);
 	});
-
 	context.subscriptions.push(pidTunerCmd);
 
-	// Helper function to save PID values to Constants file
-	async function savePIDToConstants(controller, values) {
+	const installCustomPIDCmd = vscode.commands.registerCommand('frc-vs-code-plugin.installCustomPID', async () => {
 		const workspaceFolders = vscode.workspace.workspaceFolders;
-		if (!workspaceFolders) return;
-
-		const rootPath = workspaceFolders[0].uri.fsPath;
-		const fileName = getConstantsFileName();
-		const constantsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', fileName);
-
-		if (!fs.existsSync(constantsPath)) {
-			vscode.window.showErrorMessage('Constants file not found');
+		if (!workspaceFolders) {
+			vscode.window.showErrorMessage('No workspace open');
 			return;
 		}
 
-		let content = fs.readFileSync(constantsPath, 'utf8');
+		const rootPath = workspaceFolders[0].uri.fsPath;
+		// Try to locate the robot package
+		const libPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'lib');
 
-		// Find or create PID constants class for this controller
-		const className = `${controller}PID`;
-		const pidClass = `
-    public static final class ${className} {
-        public static final double kP = ${values.kP};
-        public static final double kI = ${values.kI};
-        public static final double kD = ${values.kD};
-        public static final double kF = ${values.kF || 0.0};
-    }`;
+		try {
+			if (!fs.existsSync(libPath)) {
+				fs.mkdirSync(libPath, { recursive: true });
+			}
 
-		// Check if class already exists
-		const classRegex = new RegExp(`public static final class ${className}[\\s]*\\{[^}]*\\}`, 'g');
-		if (classRegex.test(content)) {
-			// Update existing class
-			content = content.replace(classRegex, pidClass.trim());
-		} else {
-			// Add new class before the last closing brace
-			const lastBraceIndex = content.lastIndexOf('}');
-			content = content.substring(0, lastBraceIndex) + '\n' + pidClass + '\n' + content.substring(lastBraceIndex);
+			const templatePath = path.join(context.extensionPath, 'src', 'templates', 'TuneablePIDController.java');
+			const destPath = path.join(libPath, 'TuneablePIDController.java');
+
+			if (fs.existsSync(destPath)) {
+				const overwrite = await vscode.window.showWarningMessage(
+					'TuneablePIDController.java already exists. Overwrite?',
+					'Yes',
+					'No'
+				);
+				if (overwrite !== 'Yes') {
+					return;
+				}
+			}
+
+			const content = fs.readFileSync(templatePath, 'utf8');
+			fs.writeFileSync(destPath, content);
+
+			vscode.window.showInformationMessage(`TuneablePIDController.java created in ${libPath}. You can now use it in your code.`);
+
+			// Open the file
+			const doc = await vscode.workspace.openTextDocument(destPath);
+			await vscode.window.showTextDocument(doc);
+
+		} catch (error) {
+			vscode.window.showErrorMessage(`Failed to create TuneablePIDController: ${error.message}`);
 		}
-
-		fs.writeFileSync(constantsPath, content);
-	}
-
-	const createCommandGroupCmd = vscode.commands.registerCommand('frc-vs-code-plugin.createCommandGroup', () => {
-		const panel = vscode.window.createWebviewPanel(
-			'commandComposer',
-			'Command Composer',
-			vscode.ViewColumn.One,
-			{
-				enableScripts: true,
-				retainContextWhenHidden: true
-			}
-		);
-
-		const htmlPath = path.join(context.extensionPath, 'src', 'webviews', 'commandComposer.html');
-		panel.webview.html = fs.readFileSync(htmlPath, 'utf8');
-
-		panel.webview.onDidReceiveMessage(async message => {
-			if (message.command === 'generate') {
-				await generateCommandGroup(message.data);
-				panel.dispose();
-			}
-		});
 	});
+	context.subscriptions.push(installCustomPIDCmd);
 
-	context.subscriptions.push(createCommandGroupCmd);
+	// ...existing code...
 }
 
 function parseConstants(content) {
