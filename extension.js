@@ -1,23 +1,30 @@
 const vscode = require('vscode');
-const fs = require('fs');
 const path = require('path');
 const { Client } = require('wpilib-nt-client');
 const PathPlannerPreviewProvider = require('./src/extension/pathPlannerPreviewProvider');
 const AutoPreviewProvider = require('./src/extension/autoPreviewProvider');
+const { generateSubsystemCode } = require('./src/generators/subsystem');
+const { checkVendordeps } = require('./src/generators/hardware');
+const { exists, readFile, writeFile, mkdir } = require('./src/utils/fsUtils');
 
-// Persistent state key
-const ALWAYS_OPEN_MANAGER_KEY = "frcplugin.alwaysOpenManager";
+
+
+// Helper to get configured file name
+function getConstantsFileName() {
+	const config = vscode.workspace.getConfiguration('frcPlugin');
+	return config.get('constantsFileName', 'RobotMap.java');
+}
 
 /**
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
-	console.log('FRC Plugin Active');
+	console.log('FRC Workbench: Activating...');
 
 	// Register PathPlanner Preview Provider
 	context.subscriptions.push(
 		vscode.window.registerCustomEditorProvider(
-			'frc-vs-code-plugin.pathPlannerPreview',
+			'frc-workbench.pathPlannerPreview',
 			new PathPlannerPreviewProvider(context),
 			{
 				webviewOptions: {
@@ -31,7 +38,7 @@ function activate(context) {
 	// Register Auto Preview Provider
 	context.subscriptions.push(
 		vscode.window.registerCustomEditorProvider(
-			'frc-vs-code-plugin.autoPreview',
+			'frc-workbench.autoPreview',
 			new AutoPreviewProvider(context),
 			{
 				webviewOptions: {
@@ -42,22 +49,18 @@ function activate(context) {
 		)
 	);
 
-	// Helper to get configured file name
-	function getConstantsFileName() {
-		const config = vscode.workspace.getConfiguration('frcPlugin');
-		return config.get('constantsFileName', 'RobotMap.java');
-	}
+
 
 	// 1. CodeLens Provider for Constants file
 	const codeLensProvider = {
-		provideCodeLenses(document, token) {
+		provideCodeLenses(document) {
 			const fileName = getConstantsFileName();
 			if (document.fileName.endsWith(fileName)) {
 				const topOfFile = new vscode.Range(0, 0, 0, 0);
 				const title = "Open Constants Manager";
 				const command = {
 					title: title,
-					command: "frc-vs-code-plugin.manageConstants",
+					command: "frc-workbench.manageConstants",
 					arguments: []
 				};
 				return [new vscode.CodeLens(topOfFile, command)];
@@ -77,7 +80,7 @@ function activate(context) {
 
 			if (autoOpenSetting === 'always') {
 				// Auto-open manager
-				vscode.commands.executeCommand('frc-vs-code-plugin.manageConstants');
+				vscode.commands.executeCommand('frc-workbench.manageConstants');
 			} else if (autoOpenSetting === 'ask') {
 				// Show notification
 				const choice = await vscode.window.showInformationMessage(
@@ -88,7 +91,7 @@ function activate(context) {
 				);
 
 				if (choice === 'Open Manager') {
-					vscode.commands.executeCommand('frc-vs-code-plugin.manageConstants');
+					vscode.commands.executeCommand('frc-workbench.manageConstants');
 				} else if (choice === 'Open Settings') {
 					vscode.commands.executeCommand('workbench.action.openSettings', 'frcPlugin');
 				}
@@ -98,7 +101,7 @@ function activate(context) {
 	}, null, context.subscriptions);
 
 
-	const createSubsystemCmd = vscode.commands.registerCommand('frc-vs-code-plugin.createSubsystem', () => {
+	const createSubsystemCmd = vscode.commands.registerCommand('frc-workbench.createSubsystem', async () => {
 		const panel = vscode.window.createWebviewPanel(
 			'subsystemWizard',
 			'Create Advanced Subsystem',
@@ -110,7 +113,7 @@ function activate(context) {
 		);
 
 		const htmlPath = path.join(context.extensionPath, 'src', 'webviews', 'subsystemWizard.html');
-		let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+		let htmlContent = await readFile(htmlPath);
 
 		// Inject VS Code API if needed or rely on acquireVsCodeApi in the file
 		panel.webview.html = htmlContent;
@@ -131,7 +134,7 @@ function activate(context) {
 
 	context.subscriptions.push(createSubsystemCmd);
 
-	const wrapInstantCommandCmd = vscode.commands.registerCommand('frc-vs-code-plugin.wrapInstantCommand', () => {
+	const wrapInstantCommandCmd = vscode.commands.registerCommand('frc-workbench.wrapInstantCommand', () => {
 		const editor = vscode.window.activeTextEditor;
 		if (!editor) return;
 
@@ -158,7 +161,7 @@ function activate(context) {
 
 	context.subscriptions.push(wrapInstantCommandCmd);
 
-	const manageConstantsCmd = vscode.commands.registerCommand('frc-vs-code-plugin.manageConstants', () => {
+	const manageConstantsCmd = vscode.commands.registerCommand('frc-workbench.manageConstants', async () => {
 		const panel = vscode.window.createWebviewPanel(
 			'constantsManager',
 			'RobotMap Manager',
@@ -170,7 +173,7 @@ function activate(context) {
 		);
 
 		const htmlPath = path.join(context.extensionPath, 'src', 'webviews', 'constantsManager.html');
-		panel.webview.html = fs.readFileSync(htmlPath, 'utf8');
+		panel.webview.html = await readFile(htmlPath);
 
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (workspaceFolders) {
@@ -179,8 +182,8 @@ function activate(context) {
 			const constantsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', fileName);
 
 			// Load Init
-			if (fs.existsSync(constantsPath)) {
-				const content = fs.readFileSync(constantsPath, 'utf8');
+			if (await exists(constantsPath)) {
+				const content = await readFile(constantsPath);
 				const parsedData = parseConstants(content);
 				panel.webview.postMessage({ command: 'load', data: parsedData });
 			}
@@ -190,12 +193,12 @@ function activate(context) {
 				if (message.command === 'save') {
 					const javaCode = generateConstantsCode(message.data);
 					const dir = path.dirname(constantsPath);
-					if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-					fs.writeFileSync(constantsPath, javaCode);
+					if (!(await exists(dir))) await mkdir(dir);
+					await writeFile(constantsPath, javaCode);
 					vscode.window.showInformationMessage(`${fileName} updated!`);
 
 					// Reload the data from the file we just saved
-					const updatedContent = fs.readFileSync(constantsPath, 'utf8');
+					const updatedContent = await readFile(constantsPath);
 					const updatedData = parseConstants(updatedContent);
 					panel.webview.postMessage({ command: 'load', data: updatedData });
 				} else if (message.command === 'requestNewModule') {
@@ -215,8 +218,36 @@ function activate(context) {
 
 	context.subscriptions.push(manageConstantsCmd);
 
+	const createCommandGroupCmd = vscode.commands.registerCommand('frc-workbench.createCommandGroup', async () => {
+		const panel = vscode.window.createWebviewPanel(
+			'commandComposer',
+			'Command Composer',
+			vscode.ViewColumn.One,
+			{
+				enableScripts: true,
+				retainContextWhenHidden: true
+			}
+		);
+
+		const htmlPath = path.join(context.extensionPath, 'src', 'webviews', 'commandComposer.html');
+		panel.webview.html = await readFile(htmlPath);
+
+		panel.webview.onDidReceiveMessage(
+			async message => {
+				if (message.command === 'generate') {
+					await generateCommandGroup(message.data);
+					panel.dispose();
+				}
+			},
+			undefined,
+			context.subscriptions
+		);
+	});
+
+	context.subscriptions.push(createCommandGroupCmd);
+
 	// Command to open manager and close the text editor
-	const openManagerFromEditor = vscode.commands.registerCommand('frc-vs-code-plugin.openManagerFromEditor', async () => {
+	const openManagerFromEditor = vscode.commands.registerCommand('frc-workbench.openManagerFromEditor', async () => {
 		// Close the active editor if it's the constants file
 		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
@@ -226,13 +257,13 @@ function activate(context) {
 			}
 		}
 		// Open the manager
-		vscode.commands.executeCommand('frc-vs-code-plugin.manageConstants');
+		vscode.commands.executeCommand('frc-workbench.manageConstants');
 	});
 
 	context.subscriptions.push(openManagerFromEditor);
 
 	// Pre-Flight Checklist Command
-	const preFlightChecklistCmd = vscode.commands.registerCommand('frc-vs-code-plugin.preFlightChecklist', () => {
+	const preFlightChecklistCmd = vscode.commands.registerCommand('frc-workbench.preFlightChecklist', async () => {
 		const panel = vscode.window.createWebviewPanel(
 			'preFlightChecklist',
 			'🚀 Pre-Flight Checklist',
@@ -244,7 +275,7 @@ function activate(context) {
 		);
 
 		const htmlPath = path.join(context.extensionPath, 'src', 'webviews', 'preFlightChecklist.html');
-		panel.webview.html = fs.readFileSync(htmlPath, 'utf8');
+		panel.webview.html = await readFile(htmlPath);
 
 		// Handle messages from webview
 		panel.webview.onDidReceiveMessage(async message => {
@@ -269,7 +300,7 @@ function activate(context) {
 	context.subscriptions.push(preFlightChecklistCmd);
 
 	// Build Code Command
-	const buildCodeCmd = vscode.commands.registerCommand('frc-vs-code-plugin.buildCode', () => {
+	const buildCodeCmd = vscode.commands.registerCommand('frc-workbench.buildCode', () => {
 		vscode.window.showInformationMessage('Building robot code...');
 		vscode.commands.executeCommand('wpilibcore.buildCode');
 	});
@@ -277,7 +308,7 @@ function activate(context) {
 	context.subscriptions.push(buildCodeCmd);
 
 	// Simulate Code Command
-	const simulateCodeCmd = vscode.commands.registerCommand('frc-vs-code-plugin.simulateCode', () => {
+	const simulateCodeCmd = vscode.commands.registerCommand('frc-workbench.simulateCode', () => {
 		vscode.window.showInformationMessage('Starting robot simulation...');
 		vscode.commands.executeCommand('wpilibcore.simulateCode');
 	});
@@ -285,7 +316,7 @@ function activate(context) {
 	context.subscriptions.push(simulateCodeCmd);
 
 	// PID Tuner Command
-	const pidTunerCmd = vscode.commands.registerCommand('frc-vs-code-plugin.pidTuner', () => {
+	const pidTunerCmd = vscode.commands.registerCommand('frc-workbench.pidTuner', async () => {
 		const panel = vscode.window.createWebviewPanel(
 			'pidTuner',
 			'PID Tuner',
@@ -297,11 +328,12 @@ function activate(context) {
 		);
 
 		const htmlPath = path.join(context.extensionPath, 'src', 'webviews', 'pidTuner.html');
-		let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+		let htmlContent = await readFile(htmlPath);
 		panel.webview.html = htmlContent;
 
 		const client = new Client();
-		const controllers = new Map(); // Name -> Path
+		const controllers = new Map(); // Name -> BasePath
+		const ntData = new Map(); // Key -> Value (Global Cache)
 		/** @type {Set<string>} */
 		const announcedControllers = new Set();
 
@@ -360,17 +392,22 @@ function activate(context) {
 		}
 
 		// Listener for new entries
-		client.addListener((key, val, valType, msgType, id, flags) => {
+		client.addListener((key, val, valType) => {
 			// Log all keys for debugging
-			// (leave enabled for now; can be gated behind a setting later)
 			console.log(`NT Update: ${key} = ${val} (${valType})`);
+
+			// Validate key
+			if (!key) return;
+
+			// Update cache
+			ntData.set(key, val);
 
 			tryDetectFromKey(key, val);
 		});
 
 		// Handle messages from the webview
 		panel.webview.onDidReceiveMessage(
-			message => {
+			async message => {
 				switch (message.command) {
 					case 'connect':
 						let address = message.address;
@@ -383,7 +420,7 @@ function activate(context) {
 								address = `10.${te}.${am}.2`;
 							}
 						}
-						
+
 						// Handle localhost explicitly
 						if (address === 'localhost') address = '127.0.0.1';
 
@@ -410,55 +447,38 @@ function activate(context) {
 						const name = message.controller;
 						const basePath = controllers.get(name);
 						if (basePath) {
-							// Helper to get value safely
-							const getVal = (...subKeys) => {
-								for (const subKey of subKeys) {
-									const id = client.getKeyID(basePath + '/' + subKey);
-									if (id) return client.getEntry(id).val;
+							const values = {};
+							// Iterate over all known keys to find ones belonging to this controller
+							for (const [key, val] of ntData.entries()) {
+								if (key.startsWith(basePath + '/')) {
+									const prop = key.substring(basePath.length + 1);
+									// Filter out metadata or deep nested keys if desired
+									if (!prop.startsWith('.')) {
+										values[prop] = val;
+									}
 								}
-								return 0;
-							};
+							}
 
 							panel.webview.postMessage({
 								command: 'pidValues',
 								controller: name,
-								values: {
-									kP: getVal('p', 'kP'),
-									kI: getVal('i', 'kI'),
-									kD: getVal('d', 'kD'),
-									kF: getVal('f', 'kF')
-								}
+								values: values
 							});
 						}
 						break;
 
 					case 'updatePID':
 						const controllerName = message.controller;
-						const param = message.param; // kP, kI, kD, kF
+						const param = message.param; // Generic param name (kP, kI, maxVel, etc)
 						const value = message.value;
 
 						const controllerPath = controllers.get(controllerName);
 						if (controllerPath) {
-							// Support both WPILib naming conventions.
-							const keyMap = {
-								kP: ['p', 'kP'],
-								kI: ['i', 'kI'],
-								kD: ['d', 'kD'],
-								kF: ['f', 'kF']
-							};
-							const keys = keyMap[param];
-							if (keys) {
-								// Prefer the key that already exists, otherwise write the first option.
-								let targetKey = keys[0];
-								for (const k of keys) {
-									const existingId = client.getKeyID(controllerPath + '/' + k);
-									if (existingId) {
-										targetKey = k;
-										break;
-									}
-								}
-								client.Assign(value, controllerPath + '/' + targetKey);
-							}
+							// Direct update to the key
+							const fullKey = controllerPath + '/' + param;
+							// Update local cache immediately for responsiveness
+							ntData.set(fullKey, value);
+							client.Assign(value, fullKey);
 						}
 						break;
 
@@ -474,18 +494,15 @@ function activate(context) {
 							const fileName = getConstantsFileName();
 							const constantsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', fileName);
 							const dir = path.dirname(constantsPath);
-							if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+							if (!(await exists(dir))) await mkdir(dir);
 
 							const controller = message.controller;
 							const values = message.values || {};
-							const kP = Number(values.kP ?? 0);
-							const kI = Number(values.kI ?? 0);
-							const kD = Number(values.kD ?? 0);
-							const kF = Number(values.kF ?? 0);
+							// values is now a dynamic object { kP: 0.1, kI: 0, ... }
 
 							let content = '';
-							if (fs.existsSync(constantsPath)) {
-								content = fs.readFileSync(constantsPath, 'utf8');
+							if (await exists(constantsPath)) {
+								content = await readFile(constantsPath);
 							}
 
 							// If file doesn't exist or isn't a Java constants file yet, create a minimal skeleton.
@@ -510,14 +527,25 @@ function activate(context) {
 							const safeName = String(controller || 'Controller').replace(/[^A-Za-z0-9_]/g, '_');
 							const innerClassName = `${safeName}PID`;
 
-							const pidBlock =
-								`\n    public static final class ${innerClassName} {\n` +
-								`      public static final double kP = ${kP};\n` +
-								`      public static final double kI = ${kI};\n` +
-								`      public static final double kD = ${kD};\n` +
-								`      public static final double kF = ${kF};\n` +
-								`      private ${innerClassName}() {}\n` +
-								`    }\n`;
+							// Dynamic Generation for PIDConstants
+							const pidBlockLines = [
+								`\n    public static final class ${innerClassName} {`
+							];
+
+							// Iterate over all values to generate constants
+							for (const [key, val] of Object.entries(values)) {
+								// Filter out non-numeric likely-metadata
+								if (typeof val === 'number') {
+									// Ensure key is a valid Java identifier
+									if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
+										pidBlockLines.push(`      public static final double ${key} = ${val};`);
+									}
+								}
+							}
+							pidBlockLines.push(`      private ${innerClassName}() {}`);
+							pidBlockLines.push(`    }\n`);
+
+							const pidBlock = pidBlockLines.join('\n');
 
 							// Replace existing block if present.
 							const pidConstantsStart = content.search(/public\s+static\s+final\s+class\s+PIDConstants\s*\{/);
@@ -554,7 +582,7 @@ function activate(context) {
 								}
 							}
 
-							fs.writeFileSync(constantsPath, content);
+							await writeFile(constantsPath, content);
 							vscode.window.showInformationMessage(`Saved ${controller} PID values to ${fileName}`);
 							panel.webview.postMessage({ command: 'saveResult', ok: true });
 						} catch (e) {
@@ -574,7 +602,7 @@ function activate(context) {
 	});
 	context.subscriptions.push(pidTunerCmd);
 
-	const installCustomPIDCmd = vscode.commands.registerCommand('frc-vs-code-plugin.installCustomPID', async () => {
+	const installCustomPIDCmd = vscode.commands.registerCommand('frc-workbench.installCustomPID', async (type) => {
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (!workspaceFolders) {
 			vscode.window.showErrorMessage('No workspace open');
@@ -582,20 +610,25 @@ function activate(context) {
 		}
 
 		const rootPath = workspaceFolders[0].uri.fsPath;
-		// Try to locate the robot package
 		const libPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'lib');
 
 		try {
-			if (!fs.existsSync(libPath)) {
-				fs.mkdirSync(libPath, { recursive: true });
+			if (!(await exists(libPath))) {
+				await mkdir(libPath);
 			}
 
-			const templatePath = path.join(context.extensionPath, 'src', 'templates', 'TuneablePIDController.java');
-			const destPath = path.join(libPath, 'TuneablePIDController.java');
+			const isProfiled = type === 'profiled';
+			const className = isProfiled ? 'TuneableProfiledPIDController' : 'TuneablePIDController';
+			const templatePath = path.join(context.extensionPath, 'src', 'templates', `${className}.java`);
+			const destPath = path.join(libPath, `${className}.java`);
 
-			if (fs.existsSync(destPath)) {
+			if (await exists(destPath)) {
+				// If checking for existence during generation, we might want to skip prompt?
+				// But for now, prompt is safer. 
+				// Maybe pass a 'force' flag? 
+				// Let's just keep the prompt but maybe user annoyance is potential.
 				const overwrite = await vscode.window.showWarningMessage(
-					'TuneablePIDController.java already exists. Overwrite?',
+					`${className}.java already exists. Overwrite?`,
 					'Yes',
 					'No'
 				);
@@ -604,22 +637,21 @@ function activate(context) {
 				}
 			}
 
-			const content = fs.readFileSync(templatePath, 'utf8');
-			fs.writeFileSync(destPath, content);
+			const content = await readFile(templatePath);
+			await writeFile(destPath, content);
 
-			vscode.window.showInformationMessage(`TuneablePIDController.java created in ${libPath}. You can now use it in your code.`);
+			vscode.window.showInformationMessage(`${className}.java created in ${libPath}.`);
 
-			// Open the file
 			const doc = await vscode.workspace.openTextDocument(destPath);
 			await vscode.window.showTextDocument(doc);
 
 		} catch (error) {
-			vscode.window.showErrorMessage(`Failed to create TuneablePIDController: ${error.message}`);
+			vscode.window.showErrorMessage(`Failed to create PID wrapper: ${error.message}`);
 		}
 	});
 	context.subscriptions.push(installCustomPIDCmd);
 
-	// ...existing code...
+	console.log('FRC Workbench: Activation Complete!');
 }
 
 function parseConstants(content) {
@@ -679,9 +711,9 @@ async function generateCommandGroup(data) {
 	const rootPath = workspaceFolders[0].uri.fsPath;
 	const commandsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'commands');
 
-	if (!fs.existsSync(commandsPath)) {
-		if (fs.existsSync(path.join(rootPath, 'src', 'main', 'java'))) {
-			fs.mkdirSync(commandsPath, { recursive: true });
+	if (!(await exists(commandsPath))) {
+		if (await exists(path.join(rootPath, 'src', 'main', 'java'))) {
+			await mkdir(commandsPath);
 		}
 	}
 
@@ -709,7 +741,7 @@ ${commandsCode}
 }
 `;
 
-	fs.writeFileSync(filePath, content);
+	await writeFile(filePath, content);
 	vscode.window.showInformationMessage(`CommandGroup ${className} generated!`);
 	const doc = await vscode.workspace.openTextDocument(filePath);
 	await vscode.window.showTextDocument(doc);
@@ -717,13 +749,6 @@ ${commandsCode}
 
 /**
  * @param {Object} data
- * @param {string} data.subsystemName
- * @param {string} data.subsystemType - 'generic' or 'pid'
- * @param {boolean} data.autoAppend
- * @param {boolean} data.singleton
- * @param {string} data.baseClass
- * @param {Array} data.hardware
- * @param {Object} [data.pidConfig] - Optional PID configuration (kP, kI, kD, kF, maxVelocity, maxAcceleration)
  */
 async function generateSubsystem(data) {
 	const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -735,182 +760,98 @@ async function generateSubsystem(data) {
 	const rootPath = workspaceFolders[0].uri.fsPath;
 	const subsystemsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'subsystems');
 
+	// Check Vendor Deps
+	const missingDeps = await checkVendordeps(rootPath, data.hardware.map(h => h.import || ''));
+	if (missingDeps.length > 0) {
+		const action = await vscode.window.showWarningMessage(
+			`Missing libraries: ${missingDeps.join(', ')}. Would you like to open the Vendor Library Manager to install them?`,
+			'Open Manager', 'Ignore'
+		);
+		if (action === 'Open Manager') {
+			vscode.commands.executeCommand('wpilibcore.manageVendorLibraries');
+			return; // Abort generation so user can install
+		}
+	}
+
 	// Create directory if it doesn't exist
-	if (!fs.existsSync(subsystemsPath)) {
-		if (fs.existsSync(path.join(rootPath, 'src', 'main', 'java'))) {
-			fs.mkdirSync(subsystemsPath, { recursive: true });
+	if (!(await exists(subsystemsPath))) {
+		if (await exists(path.join(rootPath, 'src', 'main', 'java'))) {
+			await mkdir(subsystemsPath);
 		} else {
 			vscode.window.showErrorMessage('Could not locate src/main/java. Is this a WPILib project?');
 			return;
 		}
 	}
 
+	// Custom PID Wrapper Check
+	if (data.subsystemType === 'pid' && data.pidConfig?.useTuneable) {
+		const type = data.pidConfig.isProfiled ? 'profiled' : 'standard';
+		await vscode.commands.executeCommand('frc-workbench.installCustomPID', type);
+	}
+
+	// Generate Code
+	const constantsFileName = getConstantsFileName();
+	const constantsClassName = constantsFileName.replace(/\.java$/, '');
+	data.constantsClassName = constantsClassName;
+
+	const { code: fileContent, constants } = generateSubsystemCode(data);
+
 	// Handle auto-append
 	let className = data.subsystemName;
 	if (data.autoAppend && !className.endsWith('Subsystem')) {
 		className += 'Subsystem';
 	}
-
 	const fileName = `${className}.java`;
 	const filePath = path.join(subsystemsPath, fileName);
 
-	const imports = new Set();
-	const declarations = [];
-	const initializers = [];
+	await writeFile(filePath, fileContent);
 
-	// Determine base class and imports
-	const isPidSubsystem = data.subsystemType === 'pid';
-	if (isPidSubsystem) {
-		imports.add('edu.wpi.first.wpilibj2.command.ProfiledPIDSubsystem');
-		imports.add('edu.wpi.first.math.controller.ProfiledPIDController');
-		imports.add('edu.wpi.first.math.trajectory.TrapezoidProfile');
-	} else {
-		imports.add(`edu.wpi.first.wpilibj2.command.${data.baseClass}`);
+	// Save Constants if generated
+	if (constants && constants.length > 0) {
+		try {
+			const fileName = getConstantsFileName();
+			const constantsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', fileName);
+			const constantsClassName = fileName.replace(/\.java$/, '');
+
+			let content = '';
+			if (await exists(constantsPath)) {
+				content = await readFile(constantsPath);
+			} else {
+				// Create skeleton if missing
+				content = `package frc.robot;
+
+/**
+ * The ${constantsClassName} is a mapping from the ports sensors and actuators are wired into
+ * to a variable name. This provides flexibility changing wiring.
+ */
+public final class ${constantsClassName} {
+}
+`;
+			}
+
+			// Simple check if class already exists to avoid duplication
+			const constClassName = `${className}Constants`;
+			if (!content.includes(`class ${constClassName}`)) {
+				// Logic to insert the new class
+				const newConstants = constants; // Array of { name, value, type }
+
+				// Insert before the last brace of the outer class
+				const lastBrace = content.lastIndexOf('}');
+				if (lastBrace !== -1) {
+					const classBlock = `    public static final class ${constClassName} {\n` +
+						newConstants.map(c => `        public static final ${c.type} ${c.name} = ${c.value};`).join('\n') +
+						`\n    }\n\n`;
+					const newContent = content.slice(0, lastBrace) + classBlock + content.slice(lastBrace);
+					await writeFile(constantsPath, newContent);
+					vscode.window.showInformationMessage(`Added ${constClassName} to ${fileName}!`);
+				}
+			}
+		} catch (e) {
+			console.error('Failed to save to constants', e);
+			vscode.window.showWarningMessage('Could not save constants to file: ' + e.message);
+		}
 	}
 
-	// Process hardware devices
-	data.hardware.forEach(device => {
-		const { type, name, id, bus } = device;
-
-		// Add imports based on device type
-		if (type === 'TalonFX') imports.add('com.ctre.phoenix6.hardware.TalonFX');
-		else if (type === 'TalonSRX') imports.add('com.ctre.phoenix.motorcontrol.can.TalonSRX');
-		else if (type === 'VictorSPX') imports.add('com.ctre.phoenix.motorcontrol.can.VictorSPX');
-		else if (type === 'CANSparkMax') {
-			imports.add('com.revrobotics.CANSparkMax');
-			imports.add('com.revrobotics.CANSparkMaxLowLevel.MotorType');
-		}
-		else if (type === 'Pigeon2') imports.add('com.ctre.phoenix6.hardware.Pigeon2');
-		else if (type === 'CANCoder') imports.add('com.ctre.phoenix6.hardware.CANcoder');
-		else if (type === 'DoubleSolenoid') {
-			imports.add('edu.wpi.first.wpilibj.DoubleSolenoid');
-			imports.add('edu.wpi.first.wpilibj.PneumaticsModuleType');
-		}
-		else if (type === 'Solenoid') {
-			imports.add('edu.wpi.first.wpilibj.Solenoid');
-			imports.add('edu.wpi.first.wpilibj.PneumaticsModuleType');
-		}
-		else if (type === 'DigitalInput') imports.add('edu.wpi.first.wpilibj.DigitalInput');
-		else if (type === 'DutyCycleEncoder') imports.add('edu.wpi.first.wpilibj.DutyCycleEncoder');
-
-		// Declarations
-		declarations.push(`  private final ${type} ${name};`);
-
-		// Initializers
-		if (type === 'TalonFX') {
-			initializers.push(`    ${name} = new TalonFX(${id}, "${bus}");`);
-		} else if (type === 'CANSparkMax') {
-			initializers.push(`    ${name} = new CANSparkMax(${id}, MotorType.kBrushless);`);
-		} else if (type === 'DoubleSolenoid') {
-			initializers.push(`    ${name} = new DoubleSolenoid(PneumaticsModuleType.CTREPCM, ${id}, ${parseInt(id) + 1});`);
-		} else if (type === 'Solenoid') {
-			initializers.push(`    ${name} = new Solenoid(PneumaticsModuleType.CTREPCM, ${id});`);
-		} else {
-			initializers.push(`    ${name} = new ${type}(${id});`);
-		}
-	});
-
-	// Generate code based on subsystem type
-	let fileContent;
-
-	if (isPidSubsystem) {
-		// Get PID config values
-		const pid = data.pidConfig || {};
-		const kP = pid.kP || '0.0';
-		const kI = pid.kI || '0.0';
-		const kD = pid.kD || '0.0';
-		const kF = pid.kF || '0.0';
-		const maxVel = pid.maxVelocity || '0.0';
-		const maxAccel = pid.maxAcceleration || '0.0';
-
-		// Add feedforward import if kF is non-zero
-		if (parseFloat(kF) !== 0) {
-			imports.add('edu.wpi.first.math.controller.SimpleMotorFeedforward');
-		}
-
-		// Profiled PID Subsystem
-		fileContent = `package frc.robot.subsystems;
-
-${Array.from(imports).map(i => `import ${i};`).join('\n')}
-
-public class ${className} extends ProfiledPIDSubsystem {
-${declarations.join('\n')}
-${parseFloat(kF) !== 0 ? `  private final SimpleMotorFeedforward feedforward = new SimpleMotorFeedforward(${kF}, 0.0, 0.0);\n` : ''}
-  public ${className}() {
-    super(
-      new ProfiledPIDController(
-        ${kP}, // kP
-        ${kI}, // kI
-        ${kD}, // kD
-        new TrapezoidProfile.Constraints(${maxVel}, ${maxAccel}) // Max velocity, max acceleration
-      )
-    );
-${initializers.join('\n')}
-  }
-
-  @Override
-  protected double getMeasurement() {
-    // Return the process variable measurement here
-    return 0.0;
-  }
-
-  @Override
-  protected void useOutput(double output, TrapezoidProfile.State setpoint) {
-    // Use the output (and setpoint, if desired) here
-${parseFloat(kF) !== 0 ? `    double feedforwardOutput = feedforward.calculate(setpoint.velocity);\n    // Apply output + feedforwardOutput to your motor` : `    // Apply output to your motor`}
-  }
-}
-`;
-	} else if (data.singleton) {
-		// Singleton pattern
-		fileContent = `package frc.robot.subsystems;
-
-${Array.from(imports).map(i => `import ${i};`).join('\n')}
-
-public class ${className} extends ${data.baseClass} {
-  private static ${className} instance;
-
-${declarations.join('\n')}
-
-  private ${className}() {
-${initializers.join('\n')}
-  }
-
-  public static ${className} getInstance() {
-    if (instance == null) {
-      instance = new ${className}();
-    }
-    return instance;
-  }
-
-  @Override
-  public void periodic() {
-    // This method will be called once per scheduler run
-  }
-}
-`;
-	} else {
-		// Generic subsystem
-		fileContent = `package frc.robot.subsystems;
-
-${Array.from(imports).map(i => `import ${i};`).join('\n')}
-
-public class ${className} extends ${data.baseClass} {
-${declarations.join('\n')}
-
-  public ${className}() {
-${initializers.join('\n')}
-  }
-
-  @Override
-  public void periodic() {
-    // This method will be called once per scheduler run
-  }
-}
-`;
-	}
-
-	fs.writeFileSync(filePath, fileContent);
 	vscode.window.showInformationMessage(`Subsystem ${className} generated successfully!`);
 
 	// Open the file

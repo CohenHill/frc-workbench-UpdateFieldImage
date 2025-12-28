@@ -9,10 +9,5 @@ vsc-extension-quickstart.md
 **/eslint.config.mjs
 **/.vscode-test.*
 .git/**
-node_modules/**
-!node_modules/wpilib-nt-client/**
-!node_modules/wpilib-ws-robot/**
-!node_modules/protobufjs/**
-!node_modules/long/**
-!node_modules/@protobufjs/**
+
 

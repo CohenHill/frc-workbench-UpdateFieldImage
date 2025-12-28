@@ -2,15 +2,15 @@
   "name": "frc-workbench",
   "displayName": "FRC Workbench",
   "description": "A collection of helpful tools for FRC teams, including PID tuning and PathPlanner previews.",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "publisher": "riteshrajas",
   "repository": {
     "type": "git",
-    "url": "https://github.com/riteshrajas/frc-vs-code-plugin"
+    "url": "https://github.com/riteshrajas/frc-workbench"
   },
   "icon": "images/image.png",
   "engines": {
-    "vscode": "^1.104.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Other",
@@ -18,125 +18,138 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onCommand:frc-vs-code-plugin.createSubsystem",
-    "onCommand:frc-vs-code-plugin.manageConstants",
-    "onCommand:frc-vs-code-plugin.pidTuner",
-    "onCustomEditor:frc-vs-code-plugin.pathPlannerPreview",
-    "onCustomEditor:frc-vs-code-plugin.autoPreview"
+    "onCustomEditor:frc-workbench.pathPlannerPreview",
+    "onCustomEditor:frc-workbench.autoPreview"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "frc-vs-code-plugin.createSubsystem",
-        "title": "FRC: Create Advanced Subsystem"
+        "command": "frc-workbench.createSubsystem",
+        "title": "Subsystem Creator"
       },
       {
-        "command": "frc-vs-code-plugin.wrapInstantCommand",
-        "title": "FRC: Wrap in InstantCommand"
+        "command": "frc-workbench.createCommandGroup",
+        "title": "Command Creator"
       },
       {
-        "command": "frc-vs-code-plugin.manageConstants",
-        "title": "FRC: Constants Manager"
+        "command": "frc-workbench.wrapInstantCommand",
+        "title": "Wrap in InstantCommand"
       },
       {
-        "command": "frc-vs-code-plugin.createCommandGroup",
-        "title": "FRC: Command Composer"
+        "command": "frc-workbench.manageConstants",
+        "title": "Constants Manager"
       },
       {
-        "command": "frc-vs-code-plugin.openManagerFromEditor",
-        "title": "Open in Constants Manager",
+        "command": "frc-workbench.openManagerFromEditor",
+        "title": "Open Constants Manager",
         "icon": "$(edit)"
       },
       {
-        "command": "frc-vs-code-plugin.preFlightChecklist",
-        "title": "FRC: Pre-Flight Checklist",
+        "command": "frc-workbench.preFlightChecklist",
+        "title": "Pre-Flight Checklist",
         "icon": "$(rocket)"
       },
       {
-        "command": "frc-vs-code-plugin.buildCode",
-        "title": "FRC: Build Code",
+        "command": "frc-workbench.buildCode",
+        "title": "Build Code",
         "icon": "$(tools)"
       },
       {
-        "command": "frc-vs-code-plugin.simulateCode",
-        "title": "FRC: Simulate Robot Code",
+        "command": "frc-workbench.simulateCode",
+        "title": "Simulate Robot Code",
         "icon": "$(play)"
       },
       {
-        "command": "frc-vs-code-plugin.pidTuner",
-        "title": "FRC: PID Tuner",
+        "command": "frc-workbench.pidTuner",
+        "title": "PID Tuner",
         "icon": "$(graph)"
       },
       {
-        "command": "frc-vs-code-plugin.installCustomPID",
-        "title": "FRC: Install Tuneable PID Class"
-      },
+        "command": "frc-workbench.installCustomPID",
+        "title": "Install Tuneable PID Class"
+      }
+    ],
+    "submenus": [
       {
-        "command": "frc-vs-code-plugin.helloWorld",
-        "title": "Hello World"
+        "id": "frc-workbench.submenu",
+        "label": "FRC"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "frc-vs-code-plugin.openManagerFromEditor",
+          "command": "frc-workbench.openManagerFromEditor",
           "when": "resourceFilename =~ /^(Constants|RobotMap)\\.java$/",
           "group": "navigation"
         },
         {
-          "command": "frc-vs-code-plugin.buildCode",
+          "command": "frc-workbench.buildCode",
           "when": "resourceLangId == java",
           "group": "navigation@1"
         },
         {
-          "command": "frc-vs-code-plugin.preFlightChecklist",
+          "command": "frc-workbench.preFlightChecklist",
           "when": "resourceLangId == java",
           "group": "navigation@2"
         },
         {
-          "command": "frc-vs-code-plugin.simulateCode",
+          "command": "frc-workbench.simulateCode",
           "when": "resourceLangId == java",
           "group": "navigation@3"
         }
       ],
       "editor/context": [
         {
-          "command": "frc-vs-code-plugin.createSubsystem",
-          "when": "editorLangId == java",
-          "group": "frc@1"
-        },
-        {
-          "command": "frc-vs-code-plugin.manageConstants",
-          "when": "editorLangId == java",
-          "group": "frc@2"
-        },
-        {
-          "command": "frc-vs-code-plugin.createCommandGroup",
-          "when": "editorLangId == java",
-          "group": "frc@3"
-        },
-        {
-          "command": "frc-vs-code-plugin.wrapInstantCommand",
-          "when": "editorLangId == java && editorHasSelection",
-          "group": "frc@4"
+          "submenu": "frc-workbench.submenu",
+          "group": "frc",
+          "when": "editorLangId == java"
         }
       ],
       "explorer/context": [
         {
-          "command": "frc-vs-code-plugin.createSubsystem",
-          "when": "explorerResourceIsFolder",
-          "group": "frc@1"
+          "submenu": "frc-workbench.submenu",
+          "group": "frc",
+          "when": "explorerResourceIsFolder"
+        }
+      ],
+      "frc-workbench.submenu": [
+        {
+          "command": "frc-workbench.createSubsystem",
+          "group": "1_creation@1"
         },
         {
-          "command": "frc-vs-code-plugin.manageConstants",
-          "when": "explorerResourceIsFolder",
-          "group": "frc@2"
+          "command": "frc-workbench.createCommandGroup",
+          "group": "1_creation@2"
         },
         {
-          "command": "frc-vs-code-plugin.createCommandGroup",
-          "when": "explorerResourceIsFolder",
-          "group": "frc@3"
+          "command": "frc-workbench.manageConstants",
+          "group": "2_management@1"
+        },
+        {
+          "command": "frc-workbench.pidTuner",
+          "group": "2_management@2"
+        },
+        {
+          "command": "frc-workbench.installCustomPID",
+          "group": "2_management@3"
+        },
+        {
+          "command": "frc-workbench.buildCode",
+          "group": "3_tools@1"
+        },
+        {
+          "command": "frc-workbench.simulateCode",
+          "group": "3_tools@2"
+        },
+        {
+          "command": "frc-workbench.preFlightChecklist",
+          "group": "3_tools@3"
+        },
+        {
+          "command": "frc-workbench.wrapInstantCommand",
+          "group": "3_tools@4",
+          "when": "editorHasSelection"
         }
       ]
     },
@@ -171,7 +184,7 @@
     },
     "customEditors": [
       {
-        "viewType": "frc-vs-code-plugin.pathPlannerPreview",
+        "viewType": "frc-workbench.pathPlannerPreview",
         "displayName": "PathPlanner Preview",
         "selector": [
           {
@@ -181,7 +194,7 @@
         "priority": "default"
       },
       {
-        "viewType": "frc-vs-code-plugin.autoPreview",
+        "viewType": "frc-workbench.autoPreview",
         "displayName": "Auto Routine Preview",
         "selector": [
           {
@@ -200,7 +213,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.104.0",
+    "@types/vscode": "^1.90.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.1"

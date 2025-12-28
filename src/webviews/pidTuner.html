@@ -242,8 +242,8 @@
     <div class="main-content">
         <div class="toolbar">
             <div class="connection-controls" style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="ipAddress" placeholder="Team # or IP (e.g. 1234 or 10.12.34.2)" 
-                       style="background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--input-border); padding: 6px; border-radius: 2px; width: 200px;">
+                <input type="text" id="ipAddress" placeholder="Team # or IP (e.g. 1234 or 10.12.34.2)"
+                    style="background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--input-border); padding: 6px; border-radius: 2px; width: 200px;">
                 <button class="btn" id="connectBtn">Connect</button>
             </div>
             <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
@@ -365,81 +365,72 @@
 
             if (controller !== currentController) return;
 
+            // Sort keys: Standard params first, then alphabetical
+            const priority = ['kP', 'kI', 'kD', 'kF', 'kS', 'kV', 'kA', 'kG'];
+            const keys = Object.keys(values).sort((a, b) => {
+                const idxA = priority.indexOf(a);
+                const idxB = priority.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            let controlsHtml = `<h3>${controller}</h3>`;
+
+            keys.forEach(key => {
+                const val = values[key];
+                // Skip if not a number
+                if (typeof val !== 'number') return;
+
+                // Determine sensible max range
+                let max = 1;
+                if (key.includes('Velocity') || key.includes('Max')) max = 10;
+                else if (key === 'kP') max = 10;
+                else if (key === 'kD' || key === 'kV') max = 5;
+
+                controlsHtml += `
+                    <div class="slider-group">
+                        <div class="slider-label">
+                            <span>${key}</span>
+                            <span class="value" id="${key}-value">${(val || 0).toFixed(4)}</span>
+                        </div>
+                        <input type="range" id="${key}-slider" data-param="${key}" min="0" max="${max}" step="0.001" value="${val || 0}">
+                        <div class="quick-input">
+                            <input type="number" id="${key}-input" data-param="${key}" value="${val || 0}" step="0.001" placeholder="Enter ${key}">
+                        </div>
+                    </div>
+                `;
+            });
+
             const tunerSection = document.getElementById('tunerSection');
-            tunerSection.innerHTML = `
-                <div class="pid-control">
-                    <h3>${controller}</h3>
-                    
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>kP (Proportional)</span>
-                            <span class="value" id="kP-value">${values.kP || 0}</span>
-                        </div>
-                        <input type="range" id="kP-slider" min="0" max="10" step="0.01" value="${values.kP || 0}">
-                        <div class="quick-input">
-                            <input type="number" id="kP-input" value="${values.kP || 0}" step="0.01" placeholder="Enter kP">
-                        </div>
-                    </div>
+            tunerSection.innerHTML = `<div class="pid-control">${controlsHtml}</div><div class="graph-container"><div style="opacity: 0.6;">📊 Response graph coming soon...</div></div>`;
 
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>kI (Integral)</span>
-                            <span class="value" id="kI-value">${values.kI || 0}</span>
-                        </div>
-                        <input type="range" id="kI-slider" min="0" max="1" step="0.001" value="${values.kI || 0}">
-                        <div class="quick-input">
-                            <input type="number" id="kI-input" value="${values.kI || 0}" step="0.001" placeholder="Enter kI">
-                        </div>
-                    </div>
+            // Attach listeners
+            keys.forEach(key => {
+                if (typeof values[key] !== 'number') return;
+                const slider = document.getElementById(`${key}-slider`);
+                const input = document.getElementById(`${key}-input`);
+                const valueDisplay = document.getElementById(`${key}-value`);
 
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>kD (Derivative)</span>
-                            <span class="value" id="kD-value">${values.kD || 0}</span>
-                        </div>
-                        <input type="range" id="kD-slider" min="0" max="5" step="0.01" value="${values.kD || 0}">
-                        <div class="quick-input">
-                            <input type="number" id="kD-input" value="${values.kD || 0}" step="0.01" placeholder="Enter kD">
-                        </div>
-                    </div>
+                if (!slider || !input) return;
 
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>kF (Feedforward)</span>
-                            <span class="value" id="kF-value">${values.kF || 0}</span>
-                        </div>
-                        <input type="range" id="kF-slider" min="0" max="1" step="0.001" value="${values.kF || 0}">
-                        <div class="quick-input">
-                            <input type="number" id="kF-input" value="${values.kF || 0}" step="0.001" placeholder="Enter kF">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="graph-container">
-                    <div style="opacity: 0.6;">📊 Response graph coming soon...</div>
-                </div>
-            `;
-
-            // Add event listeners for sliders and inputs
-            ['kP', 'kI', 'kD', 'kF'].forEach(param => {
-                const slider = document.getElementById(`${param}-slider`);
-                const input = document.getElementById(`${param}-input`);
-                const valueDisplay = document.getElementById(`${param}-value`);
+                const update = (val) => {
+                    const floatVal = parseFloat(val);
+                    if (isNaN(floatVal)) return;
+                    valueDisplay.textContent = floatVal.toFixed(4);
+                    pidValues[controller][key] = floatVal;
+                    sendPIDUpdate(controller, key, floatVal);
+                };
 
                 slider.addEventListener('input', (e) => {
-                    const value = parseFloat(e.target.value);
-                    valueDisplay.textContent = value.toFixed(3);
-                    input.value = value;
-                    pidValues[controller][param] = value;
-                    sendPIDUpdate(controller, param, value);
+                    input.value = e.target.value;
+                    update(e.target.value);
                 });
 
                 input.addEventListener('change', (e) => {
-                    const value = parseFloat(e.target.value);
-                    slider.value = value;
-                    valueDisplay.textContent = value.toFixed(3);
-                    pidValues[controller][param] = value;
-                    sendPIDUpdate(controller, param, value);
+                    slider.value = e.target.value;
+                    update(e.target.value);
                 });
             });
 

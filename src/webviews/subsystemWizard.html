@@ -266,7 +266,8 @@
                 <label>Subsystem Type</label>
                 <select id="subsystemType">
                     <option value="generic">Generic Subsystem</option>
-                    <option value="pid">Profiled PID Subsystem</option>
+                    <option value="pid">PID Subsystem</option>
+                    <option value="profiled_pid">Profiled PID Subsystem</option>
                 </select>
             </div>
 
@@ -284,6 +285,30 @@
                     <input type="checkbox" id="createSingleton">
                     <label for="createSingleton">Create as Singleton pattern</label>
                 </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="saveToConstants">
+                    <label for="saveToConstants">Save Constants to PID/Container</label>
+                </div>
+            </div>
+
+            <!-- Subsystem States Section -->
+            <div style="margin-top: 20px; border-top: 1px solid var(--vscode-widget-border); padding-top: 15px;">
+                <div class="checkbox-item">
+                    <input type="checkbox" id="enableStates">
+                    <label for="enableStates" style="font-weight: 500;">Support States System</label>
+                </div>
+
+                <div id="statesSection" style="margin-top: 10px; display: none; padding-left: 24px;">
+                    <label>Subsystem States (Enum)</label>
+                    <div style="display: flex; gap: 8px; margin-top: 5px;">
+                        <input type="text" id="newStateInput" placeholder="Add state (e.g. IDLE, INTAKING)"
+                            style="flex: 1;">
+                        <button class="btn btn-secondary" onclick="addState()">Add</button>
+                    </div>
+                    <div id="statesList" style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px;">
+                        <!-- States chips go here -->
+                    </div>
+                </div>
             </div>
 
             <div class="form-row">
@@ -298,6 +323,16 @@
         <!-- PID Configuration (only shown for PID subsystems) -->
         <div id="pidConfig" style="display: none;">
             <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">PID Configuration</h2>
+
+            <div class="form-row" style="margin-bottom: 15px;">
+                <label>Feedforward Strategy</label>
+                <select id="pidStrategy">
+                    <option value="simple">Simple (SVGA)</option>
+                    <option value="elevator">Elevator (G+SVGA)</option>
+                    <option value="arm">Arm (Cos+SVGA)</option>
+                </select>
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div class="form-row">
                     <label for="pidP">kP (Proportional)</label>
@@ -312,16 +347,44 @@
                     <input type="text" id="pidD" placeholder="0.01" value="0.0">
                 </div>
                 <div class="form-row">
-                    <label for="pidFF">kF (Feedforward)</label>
-                    <input type="text" id="pidFF" placeholder="0.0" value="0.0">
+                    <label for="pidS">kS (Static Gain)</label>
+                    <input type="text" id="pidS" placeholder="0.0" value="0.0">
+                </div>
+                <div class="form-row" id="kGRow" style="display: none;">
+                    <label for="pidG">kG (Gravity Gain)</label>
+                    <input type="text" id="pidG" placeholder="0.0" value="0.0">
                 </div>
                 <div class="form-row">
+                    <label for="pidV">kV (Velocity Gain)</label>
+                    <input type="text" id="pidV" placeholder="0.0" value="0.0">
+                </div>
+                <div class="form-row">
+                    <label for="pidA">kA (Acceleration Gain)</label>
+                    <input type="text" id="pidA" placeholder="0.0" value="0.0">
+                </div>
+                <div class="form-row profiled-only">
                     <label for="pidMaxVel">Max Velocity</label>
                     <input type="text" id="pidMaxVel" placeholder="1.0" value="0.0">
                 </div>
-                <div class="form-row">
+                <div class="form-row profiled-only">
                     <label for="pidMaxAccel">Max Acceleration</label>
                     <input type="text" id="pidMaxAccel" placeholder="1.0" value="0.0">
+                </div>
+                <!-- Output Range -->
+                <div class="form-row">
+                    <label for="minOutput">Min Output</label>
+                    <input type="text" id="minOutput" placeholder="-1.0" value="-1.0">
+                </div>
+                <div class="form-row">
+                    <label for="maxOutput">Max Output</label>
+                    <input type="text" id="maxOutput" placeholder="1.0" value="1.0">
+                </div>
+                <!-- Tuneable Wrapper Prompt -->
+                <div class="checkbox-item" style="grid-column: span 2; margin-top: 10px;">
+                    <input type="checkbox" id="useTuneable" checked>
+                    <label for="useTuneable" style="color: var(--vscode-textLink-foreground);">
+                        Use TuneablePIDController wrapper (Auto-installs if missing)
+                    </label>
                 </div>
             </div>
         </div>
@@ -332,10 +395,11 @@
                 <table>
                     <thead>
                         <tr>
-                            <th width="30%">Device Type</th>
-                            <th width="30%">Variable Name</th>
-                            <th width="15%">CAN ID</th>
-                            <th width="20%">Bus</th>
+                            <th width="20%">Device Type</th>
+                            <th width="20%">Variable Name</th>
+                            <th width="10%">CAN ID</th>
+                            <th width="15%">Bus</th>
+                            <th width="30%">Helper Methods</th>
                             <th width="5%"></th>
                         </tr>
                     </thead>
@@ -364,7 +428,7 @@
             { name: 'VictorSPX', category: 'Motor Controllers', description: 'CAN-based motor controller', import: 'com.ctre.phoenix.motorcontrol.can.VictorSPX' },
             { name: 'CANSparkMax', category: 'Motor Controllers', description: 'REV Robotics motor controller for NEO motors', import: 'com.revrobotics.CANSparkMax' },
             { name: 'Pigeon2', category: 'Sensors', description: 'IMU (gyroscope + accelerometer)', import: 'com.ctre.phoenix6.hardware.Pigeon2' },
-            { name: 'CANCoder', category: 'Sensors', description: 'Absolute magnetic encoder', import: 'com.ctre.phoenix6.hardware.CANcoder' },
+            { name: 'CANcoder', category: 'Sensors', description: 'Absolute magnetic encoder', import: 'com.ctre.phoenix6.hardware.CANcoder' },
             { name: 'DoubleSolenoid', category: 'Pneumatics', description: 'Double-acting pneumatic solenoid', import: 'edu.wpi.first.wpilibj.DoubleSolenoid' },
             { name: 'Solenoid', category: 'Pneumatics', description: 'Single-acting pneumatic solenoid', import: 'edu.wpi.first.wpilibj.Solenoid' },
             { name: 'DigitalInput', category: 'Sensors', description: 'Digital input sensor (limit switch, etc.)', import: 'edu.wpi.first.wpilibj.DigitalInput' },
@@ -372,6 +436,7 @@
         ];
 
         const devices = [];
+        const states = [];
         let draggedDevice = null;
 
         function renderDeviceTypes() {
@@ -478,15 +543,74 @@
 
             devices.forEach((device, index) => {
                 const row = document.createElement('tr');
+                // Helper Methods Logic based on type
+                let helpersHtml = '';
+                if (device.type === 'TalonFX' || device.type === 'CANSparkMax') {
+                    helpersHtml = `
+                        <div style="display:flex; flex-direction:column; gap:4px; font-size:0.85em;">
+                            <label><input type="checkbox" onchange="toggleHelper(${index}, 'getVelocity', this.checked)" ${device.helperMethods?.includes('getVelocity') ? 'checked' : ''}> getVelocity()</label>
+                            <label><input type="checkbox" onchange="toggleHelper(${index}, 'getPosition', this.checked)" ${device.helperMethods?.includes('getPosition') ? 'checked' : ''}> getPosition()</label>
+                        </div>
+                    `;
+                } else if (device.type === 'CANcoder' || device.type === 'Pigeon2') {
+                    const method = device.type === 'Pigeon2' ? 'getYaw' : 'getPosition';
+                    helpersHtml = `
+                        <label style="font-size:0.85em;"><input type="checkbox" onchange="toggleHelper(${index}, '${method}', this.checked)" ${device.helperMethods?.includes(method) ? 'checked' : ''}> ${method}()</label>
+                    `;
+                } else if (device.type.includes('Solenoid')) {
+                    helpersHtml = `
+                        <label style="font-size:0.85em;"><input type="checkbox" onchange="toggleHelper(${index}, 'toggle', this.checked)" ${device.helperMethods?.includes('toggle') ? 'checked' : ''}> toggle()</label>
+                    `;
+                }
+
                 row.innerHTML = `
                     <td>${device.type}</td>
-                    <td><input type="text" value="${device.name}" onchange="updateDevice(${index}, 'name', this.value)" placeholder="motor"></td>
-                    <td><input type="text" value="${device.id}" onchange="updateDevice(${index}, 'id', this.value)" placeholder="1" style="text-align:center;"></td>
-                    <td><input type="text" value="${device.bus}" onchange="updateDevice(${index}, 'bus', this.value)" placeholder="rio"></td>
+                    <td><input type="text" class="device-name" value="${device.name}" onchange="updateDevice(${index}, 'name', this.value)" placeholder="motor"></td>
+                    <td><input type="text" class="device-id" value="${device.id}" onchange="updateDevice(${index}, 'id', this.value)" placeholder="1" style="text-align:center;"></td>
+                    <td><input type="text" class="device-bus" value="${device.bus}" onchange="updateDevice(${index}, 'bus', this.value)" placeholder="rio"></td>
+                    <td>${helpersHtml}</td>
                     <td><button class="btn btn-icon" onclick="deleteDevice(${index})">🗑</button></td>
                 `;
                 table.appendChild(row);
             });
+        }
+
+        window.toggleHelper = (index, method, checked) => {
+            if (!devices[index].helperMethods) devices[index].helperMethods = [];
+            if (checked) {
+                if (!devices[index].helperMethods.includes(method)) devices[index].helperMethods.push(method);
+            } else {
+                devices[index].helperMethods = devices[index].helperMethods.filter(m => m !== method);
+            }
+        };
+
+        // State Management
+        window.addState = () => {
+            const input = document.getElementById('newStateInput');
+            const val = input.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+            if (val && !states.includes(val)) {
+                states.push(val);
+                renderStates();
+                input.value = '';
+            }
+        };
+
+        window.removeState = (val) => {
+            const idx = states.indexOf(val);
+            if (idx !== -1) {
+                states.splice(idx, 1);
+                renderStates();
+            }
+        };
+
+        function renderStates() {
+            const container = document.getElementById('statesList');
+            container.innerHTML = states.map(s => `
+                <div style="background:var(--button-bg); color:var(--button-fg); padding:4px 8px; border-radius:12px; font-size:0.85em; display:flex; align-items:center; gap:6px;">
+                    ${s}
+                    <span onclick="removeState('${s}')" style="cursor:pointer; font-weight:bold;">×</span>
+                </div>
+            `).join('');
         }
 
         window.updateDevice = (index, field, value) => {
@@ -500,11 +624,32 @@
 
         // Show/hide PID config based on subsystem type
         document.getElementById('subsystemType').addEventListener('change', (e) => {
+            const type = e.target.value;
             const pidConfig = document.getElementById('pidConfig');
-            if (e.target.value === 'pid') {
-                pidConfig.style.display = 'block';
-            } else {
+
+            if (type === 'generic') {
                 pidConfig.style.display = 'none';
+            } else {
+                pidConfig.style.display = 'block';
+                // Show/Hide Profiled fields
+                const profiledFields = document.querySelectorAll('.profiled-only');
+                profiledFields.forEach(el => el.style.display = (type === 'profiled_pid') ? 'block' : 'none');
+            }
+        });
+
+        // Toggle States Section
+        document.getElementById('enableStates').addEventListener('change', (e) => {
+            document.getElementById('statesSection').style.display = e.target.checked ? 'block' : 'none';
+        });
+
+        // Toggle kG based on Strategy
+        document.getElementById('pidStrategy').addEventListener('change', (e) => {
+            const strategy = e.target.value;
+            const kGRow = document.getElementById('kGRow');
+            if (strategy === 'elevator' || strategy === 'arm') {
+                kGRow.style.display = 'flex';
+            } else {
+                kGRow.style.display = 'none';
             }
         });
 
@@ -512,25 +657,61 @@
             const name = document.getElementById('subsystemName').value.trim();
             if (!name) return;
 
-            const subsystemType = document.getElementById('subsystemType').value;
+            // Collect Hardware
+            const hardwareList = [];
+            const rows = document.querySelectorAll('#deviceTable tr');
+            rows.forEach((row, index) => {
+                const nameInput = row.querySelector('.device-name');
+                const idInput = row.querySelector('.device-id');
+                const busInput = row.querySelector('.device-bus');
+
+                // Helper Methods handling
+                const helperMethods = [];
+                const checkboxes = row.querySelectorAll('.helper-method-checkbox');
+                checkboxes.forEach(cb => {
+                    if (cb.checked) helperMethods.push(cb.value);
+                });
+
+                if (nameInput && nameInput.value) {
+                    hardwareList.push({
+                        type: devices[index].type,
+                        name: nameInput.value,
+                        id: idInput ? idInput.value : '',
+                        bus: busInput ? busInput.value : 'rio',
+                        helperMethods: helperMethods
+                    });
+                }
+            });
+
+            const type = document.getElementById('subsystemType').value;
             const data = {
                 subsystemName: name,
-                subsystemType: subsystemType,
+                subsystemType: (type === 'pid' || type === 'profiled_pid') ? 'pid' : 'generic',
                 autoAppend: document.getElementById('autoAppend').checked,
                 singleton: document.getElementById('createSingleton').checked,
                 baseClass: document.getElementById('baseClass').value,
-                hardware: devices
+                hardware: hardwareList,
+                states: document.getElementById('enableStates').checked ? states : [],
+                saveConstants: document.getElementById('saveToConstants').checked
             };
 
             // Add PID config if it's a PID subsystem
-            if (subsystemType === 'pid') {
+            if (type !== 'generic') {
                 data.pidConfig = {
                     kP: document.getElementById('pidP').value,
                     kI: document.getElementById('pidI').value,
                     kD: document.getElementById('pidD').value,
-                    kF: document.getElementById('pidFF').value,
+                    kS: document.getElementById('pidS').value,
+                    kV: document.getElementById('pidV').value,
+                    kA: document.getElementById('pidA').value,
+                    kG: document.getElementById('pidG').value,
+                    strategy: document.getElementById('pidStrategy').value,
                     maxVelocity: document.getElementById('pidMaxVel').value,
-                    maxAcceleration: document.getElementById('pidMaxAccel').value
+                    maxAcceleration: document.getElementById('pidMaxAccel').value,
+                    minOutput: document.getElementById('minOutput').value,
+                    maxOutput: document.getElementById('maxOutput').value,
+                    useTuneable: document.getElementById('useTuneable').checked,
+                    isProfiled: type === 'profiled_pid'
                 };
             }
 

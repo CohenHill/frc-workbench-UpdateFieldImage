@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +16,7 @@
             height: 100vh;
             overflow: hidden;
         }
+
         #controls {
             padding: 10px;
             background-color: var(--vscode-editorWidget-background);
@@ -23,6 +25,7 @@
             gap: 10px;
             align-items: center;
         }
+
         #canvas-container {
             flex: 1;
             display: flex;
@@ -31,16 +34,21 @@
             overflow: auto;
             padding: 20px;
         }
+
         canvas {
             box-shadow: 0 0 10px rgba(0, 0, 0, 0);
             background-color: #33333300;
         }
     </style>
 </head>
+
 <body>
     <div id="controls">
-        <span>PathPlanner Preview</span>
-        <!-- Add more controls here if needed -->
+        <div style="flex:1;">PathPlanner Preview</div>
+        <button id="playBtn" class="btn">Play</button>
+        <button id="resetBtn" class="btn">Reset</button>
+        <input type="range" id="progressSlider" min="0" max="100" value="0" style="flex:2;">
+        <span id="timeDisplay">0.0s</span>
     </div>
     <div id="canvas-container">
         <canvas id="fieldCanvas"></canvas>
@@ -51,7 +59,7 @@
         const canvas = document.getElementById('fieldCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Field dimensions (approximate for standard FRC field, e.g., Crescendo 2024 is ~16.54m x 8.21m)
+        // Field dimensions (approximate for standard FRC field)
         const FIELD_WIDTH = 16.54;
         const FIELD_HEIGHT = 8.21;
         const PIXELS_PER_METER = 60; // Scale factor
@@ -61,6 +69,14 @@
         canvas.height = FIELD_HEIGHT * PIXELS_PER_METER;
 
         let currentPathData = null;
+        let pathPoints = []; // [{x, y, rotation, curvature}]
+        let isPlaying = false;
+        let playbackIndex = 0;
+
+        // Robot size (assume 0.8m square)
+        const ROBOT_SIZE = 0.8;
+        const ROBOT_PIXELS = ROBOT_SIZE * PIXELS_PER_METER;
+
         const fieldImage = new Image();
         fieldImage.src = '${fieldImageUri}';
         let fieldImageLoaded = false;
@@ -79,6 +95,7 @@
                         const text = message.text;
                         if (text) {
                             currentPathData = JSON.parse(text);
+                            generatePathPoints();
                             draw();
                         }
                     } catch (e) {
@@ -102,12 +119,8 @@
             if (fieldImageLoaded) {
                 ctx.drawImage(fieldImage, 0, 0, canvas.width, canvas.height);
             } else {
-                // Transparent/Empty background if no image
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
-
-            // Field border
-           
         }
 
         function drawPath(data) {
@@ -115,34 +128,33 @@
 
             const waypoints = data.waypoints;
 
-            // Draw Splines
-            ctx.strokeStyle = '#00FF00'; // Green path
-            ctx.lineWidth = 3;
-            ctx.beginPath();
+            // Draw Coloured Path Segments (Stress Lines) based on curvature
+            if (pathPoints.length > 1) {
+                ctx.lineWidth = 3;
+                for (let i = 0; i < pathPoints.length - 1; i++) {
+                    const pCurrent = pathPoints[i];
+                    const pNext = pathPoints[i + 1];
 
-            // Move to first point
-            const start = waypoints[0];
-            ctx.moveTo(transformX(start.anchor.x), transformY(start.anchor.y));
+                    ctx.beginPath();
+                    ctx.moveTo(transformX(pCurrent.x), transformY(pCurrent.y));
+                    ctx.lineTo(transformX(pNext.x), transformY(pNext.y));
 
-            for (let i = 0; i < waypoints.length - 1; i++) {
-                const p0 = waypoints[i];
-                const p1 = waypoints[i+1];
+                    // Color based on curvature
+                    // High curvature = Red (Stress), Low = Green
+                    // Standard FRC max curvature is ~1.5 - 2.0 rad/m for typical turns
+                    const k = Math.abs(pCurrent.curvature || 0);
+                    const t = Math.min(k / 2.0, 1.0); // Normalize to [0, 1]
+                    const hue = 120 * (1 - t); // Green(120) -> Red(0)
 
-                // Cubic Bezier: Start -> Control1 -> Control2 -> End
-                // p0.nextControl is Control 1
-                // p1.prevControl is Control 2
-                
-                // If control points are null, use anchor (straight line fallback, though PathPlanner usually has them)
-                const cp1 = p0.nextControl || p0.anchor;
-                const cp2 = p1.prevControl || p1.anchor;
-
-                ctx.bezierCurveTo(
-                    transformX(cp1.x), transformY(cp1.y),
-                    transformX(cp2.x), transformY(cp2.y),
-                    transformX(p1.anchor.x), transformY(p1.anchor.y)
-                );
+                    ctx.strokeStyle = `hsl(${hue}, 100%, 50%)`;
+                    ctx.stroke();
+                }
+            } else {
+                // Fallback if no points generated yet
+                ctx.strokeStyle = '#00FF00';
+                ctx.lineWidth = 3;
+                // ... (simple path drawing could go here but pathPoints should exist)
             }
-            ctx.stroke();
 
             // Draw Waypoints and Control Points
             waypoints.forEach(wp => {
@@ -166,7 +178,7 @@
                     ctx.beginPath();
                     ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
                     ctx.fill();
-                    
+
                     ctx.beginPath();
                     ctx.moveTo(ax, ay);
                     ctx.lineTo(cx, cy);
@@ -195,10 +207,175 @@
             if (currentPathData) {
                 drawPath(currentPathData);
             }
+
+            // Draw Robot
+            if (pathPoints.length > 0) {
+                const point = pathPoints[playbackIndex];
+                if (point) {
+                    drawRobot(point.x, point.y, point.rotation);
+                }
+            }
+        }
+
+        function drawRobot(x, y, rotation) {
+            ctx.save();
+            const px = transformX(x);
+            const py = transformY(y);
+
+            ctx.translate(px, py);
+            ctx.rotate(-rotation);
+
+            ctx.fillStyle = 'rgba(0, 100, 255, 0.5)';
+            ctx.strokeStyle = '#00AAFF';
+            ctx.lineWidth = 2;
+
+            // Draw box centered
+            ctx.fillRect(-ROBOT_PIXELS / 2, -ROBOT_PIXELS / 2, ROBOT_PIXELS, ROBOT_PIXELS);
+            ctx.strokeRect(-ROBOT_PIXELS / 2, -ROBOT_PIXELS / 2, ROBOT_PIXELS, ROBOT_PIXELS);
+
+            // Heading line
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(ROBOT_PIXELS / 1.5, 0); // Front indication
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // --- Path Sampling Logic ---
+        function generatePathPoints() {
+            pathPoints = [];
+            if (!currentPathData || !currentPathData.waypoints || currentPathData.waypoints.length < 2) return;
+
+            const waypoints = currentPathData.waypoints;
+            const SAMPLES_PER_SEGMENT = 50;
+
+            for (let i = 0; i < waypoints.length - 1; i++) {
+                const p0 = waypoints[i];
+                const p1 = waypoints[i + 1];
+
+                const cp1 = p0.nextControl || p0.anchor;
+                const cp2 = p1.prevControl || p1.anchor;
+
+                // Cubic Bezier
+                for (let j = 0; j < SAMPLES_PER_SEGMENT; j++) {
+                    const t = j / SAMPLES_PER_SEGMENT;
+                    const pt = cubicBezier(t, p0.anchor, cp1, cp2, p1.anchor);
+
+                    // Derivatives for Curvature
+                    const d1 = cubicTangentVec(t, p0.anchor, cp1, cp2, p1.anchor);
+                    const d2 = cubicSecondDerivative(t, p0.anchor, cp1, cp2, p1.anchor);
+
+                    // Curvature k = |x'y'' - y'x''| / (x'^2 + y'^2)^(1.5)
+                    const numerator = Math.abs(d1.x * d2.y - d1.y * d2.x);
+                    const denominator = Math.pow(d1.x * d1.x + d1.y * d1.y, 1.5);
+                    let curvature = 0;
+                    if (denominator > 0.0001) curvature = numerator / denominator;
+
+                    const rot = Math.atan2(d1.y, d1.x);
+
+                    pathPoints.push({ x: pt.x, y: pt.y, rotation: rot, curvature: curvature });
+                }
+            }
+            // Add last point
+            const last = waypoints[waypoints.length - 1];
+            // Use previous rotation or 0
+            const lastRot = pathPoints.length > 0 ? pathPoints[pathPoints.length - 1].rotation : 0;
+            pathPoints.push({ x: last.anchor.x, y: last.anchor.y, rotation: lastRot, curvature: 0 });
+
+            // Update Control Limits
+            const slider = document.getElementById('progressSlider');
+            slider.max = pathPoints.length - 1;
+            slider.value = 0;
+            playbackIndex = 0;
+        }
+
+        function cubicBezier(t, p0, c1, c2, p3) {
+            const mt = 1 - t;
+            const mt2 = mt * mt;
+            const mt3 = mt * mt * mt;
+            const t2 = t * t;
+            const t3 = t * t * t;
+
+            const x = mt3 * p0.x + 3 * mt2 * t * c1.x + 3 * mt * t2 * c2.x + t3 * p3.x;
+            const y = mt3 * p0.y + 3 * mt2 * t * c1.y + 3 * mt * t2 * c2.y + t3 * p3.y;
+            return { x, y };
+        }
+
+        function cubicTangentVec(t, p0, c1, c2, p3) {
+            // First Derivative
+            const mt = 1 - t;
+            const k1 = 3 * mt * mt;
+            const k2 = 6 * mt * t;
+            const k3 = 3 * t * t;
+
+            const x = k1 * (c1.x - p0.x) + k2 * (c2.x - c1.x) + k3 * (p3.x - c2.x);
+            const y = k1 * (c1.y - p0.y) + k2 * (c2.y - c1.y) + k3 * (p3.y - c2.y);
+            return { x, y };
+        }
+
+        function cubicSecondDerivative(t, p0, c1, c2, p3) {
+            // Second Derivative
+            const mt = 1 - t;
+            const term1 = 6 * mt;
+            const term2 = 6 * t;
+
+            const x = term1 * (c2.x - 2 * c1.x + p0.x) + term2 * (p3.x - 2 * c2.x + c1.x);
+            const y = term1 * (c2.y - 2 * c1.y + p0.y) + term2 * (p3.y - 2 * c2.y + c1.y);
+            return { x, y };
+        }
+
+        function cubicTangent(t, p0, c1, c2, p3) {
+            const v = cubicTangentVec(t, p0, c1, c2, p3);
+            return Math.atan2(v.y, v.x);
+        }
+
+        // --- Controls ---
+        const playBtn = document.getElementById('playBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const slider = document.getElementById('progressSlider');
+
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playBtn.textContent = isPlaying ? 'Pause' : 'Play';
+            if (isPlaying) {
+                animateLoop();
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            isPlaying = false;
+            playBtn.textContent = 'Play';
+            playbackIndex = 0;
+            slider.value = 0;
+            draw();
+        });
+
+        slider.addEventListener('input', (e) => {
+            isPlaying = false;
+            playBtn.textContent = 'Play';
+            playbackIndex = parseInt(e.target.value);
+            draw();
+        });
+
+        function animateLoop() {
+            if (!isPlaying) return;
+
+            if (playbackIndex < pathPoints.length - 1) {
+                playbackIndex++;
+                slider.value = playbackIndex;
+                draw();
+                requestAnimationFrame(animateLoop);
+            } else {
+                isPlaying = false;
+                playBtn.textContent = 'Play';
+            }
         }
 
         // Initial draw
         drawField();
     </script>
 </body>
+
 </html>
