@@ -61,6 +61,7 @@ Generate robust, modern WPILib subsystems in seconds.
 *   **New**: Dynamic PID Tuner with support for Feedforward (kS, kV, kA, kG) and generic numeric fields.
 *   **New**: PathPlanner Preview with Playback controls and Curvature "Stress" visualization.
 *   **New**: Enhanced Subsystem Creator with State Machine generation and Helper Methods.
+*   **New**: YAMS/YAMG Integration: Launch the YAMG mechanism generator directly from the wizard (auto-checks for YAMS library).
 *   **New**: Vendor Library presence checks (ReduxLib, NavX, CTRE, REV).
 *   **Improved**: Context Menu organization.
 

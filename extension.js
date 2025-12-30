@@ -4,6 +4,7 @@ const { Client } = require('wpilib-nt-client');
 const PathPlannerPreviewProvider = require('./src/extension/pathPlannerPreviewProvider');
 const AutoPreviewProvider = require('./src/extension/autoPreviewProvider');
 const { generateSubsystemCode } = require('./src/generators/subsystem');
+const { generateYAMSSubsystem } = require('./src/generators/yams');
 const { checkVendordeps } = require('./src/generators/hardware');
 const { exists, readFile, writeFile, mkdir } = require('./src/utils/fsUtils');
 
@@ -104,7 +105,7 @@ function activate(context) {
 	const createSubsystemCmd = vscode.commands.registerCommand('frc-workbench.createSubsystem', async () => {
 		const panel = vscode.window.createWebviewPanel(
 			'subsystemWizard',
-			'Create Advanced Subsystem',
+			'Subsystem Creator',
 			vscode.ViewColumn.One,
 			{
 				enableScripts: true,
@@ -112,11 +113,50 @@ function activate(context) {
 			}
 		);
 
-		const htmlPath = path.join(context.extensionPath, 'src', 'webviews', 'subsystemWizard.html');
-		let htmlContent = await readFile(htmlPath);
+		// View Loader Helper
+		const loadView = async (viewName) => {
+			const fileName = viewName === 'hub' ? 'yamsHub.html' : 'subsystemWizard.html';
+			const htmlPath = path.join(context.extensionPath, 'src', 'webviews', fileName);
+			panel.webview.html = await readFile(htmlPath);
+		};
 
-		// Inject VS Code API if needed or rely on acquireVsCodeApi in the file
-		panel.webview.html = htmlContent;
+		// Initial Load
+		await loadView('wizard');
+
+		// Check for installed vendordeps
+		const checkVendors = async () => {
+			const workspaceFolders = vscode.workspace.workspaceFolders;
+			if (!workspaceFolders) return [];
+
+			const rootPath = workspaceFolders[0].uri.fsPath;
+			const vendorPath = path.join(rootPath, 'vendordeps');
+			const installedVendors = [];
+
+			if (await exists(vendorPath)) {
+				try {
+					const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(vendorPath));
+					for (const [file] of files) {
+						if (file.endsWith('.json')) {
+							const lowerFile = file.toLowerCase();
+							// Simple check
+							if (lowerFile.includes('phoenix6')) installedVendors.push('Phoenix6');
+							// Detect Phoenix 5 (legacy) - usually just "Phoenix.json" or similar, but NOT Phoenix6
+							if (lowerFile.includes('phoenix') && !lowerFile.includes('phoenix6')) installedVendors.push('Phoenix');
+							if (lowerFile.includes('revlib')) installedVendors.push('REVLib');
+							if (lowerFile.includes('navx') || lowerFile.includes('studica')) installedVendors.push('NavX');
+							if (lowerFile.includes('redux')) installedVendors.push('ReduxLib');
+							// Add more heuristics as needed
+						}
+					}
+				} catch (e) {
+					console.error("Error reading vendordeps:", e);
+				}
+			}
+			return [...new Set(installedVendors)]; // Unique
+		};
+
+		const vendors = await checkVendors();
+		panel.webview.postMessage({ command: 'updateVendordeps', vendors: vendors });
 
 		panel.webview.onDidReceiveMessage(
 			async message => {
@@ -125,6 +165,63 @@ function activate(context) {
 						await generateSubsystem(message.data);
 						panel.dispose();
 						return;
+
+					case 'openYAMG':
+						// Check for YAMS library
+						const workspaceFolders = vscode.workspace.workspaceFolders;
+						if (workspaceFolders) {
+							const rootPath = workspaceFolders[0].uri.fsPath;
+							const vendorPath = path.join(rootPath, 'vendordeps');
+							let hasYAMS = false;
+							if (await exists(vendorPath)) {
+								try {
+									const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(vendorPath));
+									hasYAMS = files.some(([name]) => name.toLowerCase().includes('yams') && name.endsWith('.json'));
+								} catch (e) { console.error(e); }
+							}
+
+							if (!hasYAMS) {
+								const selection = await vscode.window.showWarningMessage(
+									'YAMS library not found! You need it to use YAMG generated code.',
+									'Download YAMS',
+									'Ignore & Continue'
+								);
+								if (selection === 'Download YAMS') {
+									vscode.env.openExternal(vscode.Uri.parse('https://yagsl.gitbook.io/yams/'));
+									return;
+								} else if (selection !== 'Ignore & Continue') {
+									return;
+								}
+							}
+						}
+						// Switch to Hub
+						await loadView('hub');
+						return;
+
+					case 'launchYamg':
+						vscode.env.openExternal(vscode.Uri.parse('https://yamgen.com/'));
+						return;
+
+					case 'generateYAMS':
+						const wf = vscode.workspace.workspaceFolders;
+						if (wf) {
+							await generateYAMSSubsystem(message.data, wf[0].uri.fsPath);
+						}
+						return;
+
+					case 'backToWizard':
+						await loadView('wizard');
+						const v = await checkVendors();
+						panel.webview.postMessage({ command: 'updateVendordeps', vendors: v });
+						return;
+
+					case 'openVendorUrl':
+						const url = message.url;
+						if (url) {
+							vscode.env.openExternal(vscode.Uri.parse(url));
+						}
+						return;
+
 				}
 			},
 			undefined,
@@ -402,6 +499,21 @@ function activate(context) {
 			// Update cache
 			ntData.set(key, val);
 
+			// Check if this update belongs to a known controller and notify webview
+			for (const [name, basePath] of controllers) {
+				if (key.startsWith(basePath + '/')) {
+					const param = key.substring(basePath.length + 1);
+					// Filter out metadata if needed, though webview handles it
+					if (!param.startsWith('.')) {
+						panel.webview.postMessage({
+							command: 'pidValues',
+							controller: name,
+							values: { [param]: val }
+						});
+					}
+				}
+			}
+
 			tryDetectFromKey(key, val);
 		});
 
@@ -602,6 +714,52 @@ function activate(context) {
 	});
 	context.subscriptions.push(pidTunerCmd);
 
+	const checkAndOpenYAMGCmd = vscode.commands.registerCommand('frc-workbench.checkAndOpenYAMG', async () => {
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+		if (!workspaceFolders) {
+			vscode.window.showErrorMessage('No workspace open');
+			return;
+		}
+
+		const rootPath = workspaceFolders[0].uri.fsPath;
+		const vendorPath = path.join(rootPath, 'vendordeps');
+		let hasYAMS = false;
+
+		// Check for YAMS json
+		if (await exists(vendorPath)) {
+			// Basic check for any file containing "yams" (case insensitive)
+			// Since we don't have glob easily here without more extension dependencies or 'findFiles',
+			// we'll just read the dir.
+			try {
+				const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(vendorPath));
+				hasYAMS = files.some(([name]) => name.toLowerCase().includes('yams') && name.endsWith('.json'));
+			} catch (e) {
+				console.error('Error reading vendordeps', e);
+			}
+		}
+
+		if (!hasYAMS) {
+			const selection = await vscode.window.showWarningMessage(
+				'YAMS (Yet Another Mechanism System) library not found in vendordeps. You may need it to use YAMG generated code. Would you like to download it first?',
+				'Download YAMS',
+				'Continue to YAMG',
+				'Cancel'
+			);
+
+			if (selection === 'Download YAMS') {
+				vscode.env.openExternal(vscode.Uri.parse('https://yagsl.gitbook.io/yams/'));
+				return;
+			} else if (selection !== 'Continue to YAMG') {
+				return;
+			}
+		}
+
+		// Open YAMG
+		vscode.env.openExternal(vscode.Uri.parse('https://yamgen.com/'));
+	});
+	context.subscriptions.push(checkAndOpenYAMGCmd);
+
+
 	const installCustomPIDCmd = vscode.commands.registerCommand('frc-workbench.installCustomPID', async (type) => {
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (!workspaceFolders) {
@@ -618,30 +776,27 @@ function activate(context) {
 			}
 
 			const isProfiled = type === 'profiled';
-			const className = isProfiled ? 'TuneableProfiledPIDController' : 'TuneablePIDController';
-			const templatePath = path.join(context.extensionPath, 'src', 'templates', `${className}.java`);
-			const destPath = path.join(libPath, `${className}.java`);
+			const controllerName = isProfiled ? 'TuneableProfiledPIDController' : 'TuneablePIDController';
 
-			if (await exists(destPath)) {
-				// If checking for existence during generation, we might want to skip prompt?
-				// But for now, prompt is safer. 
-				// Maybe pass a 'force' flag? 
-				// Let's just keep the prompt but maybe user annoyance is potential.
-				const overwrite = await vscode.window.showWarningMessage(
-					`${className}.java already exists. Overwrite?`,
-					'Yes',
-					'No'
-				);
-				if (overwrite !== 'Yes') {
-					return;
-				}
+			// List of files to copy
+			// TuneablePIDSubsystem depends on TuneablePIDController, so we must ensure it's present.
+			const filesToCopy = new Set(['TuneablePIDController', 'TuneablePIDSubsystem', 'StallDetector']);
+			if (isProfiled) filesToCopy.add('TuneableProfiledPIDController');
+
+			for (const className of filesToCopy) {
+				const templatePath = path.join(context.extensionPath, 'src', 'templates', `${className}.java`);
+				const destPath = path.join(libPath, `${className}.java`);
+
+				// Overwrite existing files as requested
+				// if (await exists(destPath)) { continue; }
+
+				const content = await readFile(templatePath);
+				await writeFile(destPath, content);
+				vscode.window.showInformationMessage(`${className}.java created in ${libPath}.`);
 			}
 
-			const content = await readFile(templatePath);
-			await writeFile(destPath, content);
-
-			vscode.window.showInformationMessage(`${className}.java created in ${libPath}.`);
-
+			// Open the controller file
+			const destPath = path.join(libPath, `${controllerName}.java`);
 			const doc = await vscode.workspace.openTextDocument(destPath);
 			await vscode.window.showTextDocument(doc);
 

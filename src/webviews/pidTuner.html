@@ -127,38 +127,49 @@
         }
 
         .tuner-section {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
         }
 
-        .pid-control {
-            margin-bottom: 30px;
-            padding: 20px;
+        .pid-header {
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        /* Control Rows Layout */
+        .control-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+
+        .control-item {
+            flex: 1;
+            min-width: 0;
+            /* Prevents overflow */
             background: rgba(128, 128, 128, 0.05);
+            padding: 15px;
             border-radius: 4px;
         }
 
-        .pid-control h3 {
-            margin: 0 0 15px 0;
-            font-size: 1.1em;
-        }
-
-        .slider-group {
-            margin-bottom: 20px;
-        }
-
-        .slider-label {
+        .control-label {
             display: flex;
             justify-content: space-between;
             margin-bottom: 8px;
             font-size: 0.9em;
-        }
-
-        .slider-label .value {
             font-weight: 600;
-            color: var(--vscode-textLink-foreground);
         }
 
+        .control-label .value-display {
+            color: var(--vscode-textLink-foreground);
+            font-family: monospace;
+        }
+
+        /* Sliders and Inputs */
         input[type="range"] {
             width: 100%;
             height: 6px;
@@ -166,11 +177,12 @@
             background: var(--input-bg);
             outline: none;
             -webkit-appearance: none;
+            margin-bottom: 8px;
+            cursor: pointer;
         }
 
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            appearance: none;
             width: 16px;
             height: 16px;
             border-radius: 50%;
@@ -178,49 +190,46 @@
             cursor: pointer;
         }
 
-        input[type="range"]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: var(--button-bg);
-            cursor: pointer;
-            border: none;
+        input[type="number"] {
+            width: 100%;
+            box-sizing: border-box;
+            background: var(--input-bg);
+            color: var(--input-fg);
+            border: 1px solid var(--input-border);
+            padding: 4px 8px;
+            border-radius: 2px;
         }
 
+        /* Read-only displays */
+        .readonly-display {
+            font-size: 1.2em;
+            font-family: monospace;
+            text-align: center;
+            padding: 10px;
+            background: var(--input-bg);
+            border-radius: 4px;
+            border: 1px solid var(--input-border);
+        }
+
+        /* Graph */
         .graph-container {
-            margin-top: 20px;
-            padding: 20px;
+            margin-top: 30px;
+            padding: 15px;
             background: rgba(128, 128, 128, 0.05);
             border-radius: 4px;
-            height: 300px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            height: 350px;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
         }
 
         .empty-state {
             text-align: center;
             padding: 60px 20px;
             opacity: 0.6;
-        }
-
-        .empty-state h2 {
-            margin: 0 0 10px 0;
-        }
-
-        .quick-input {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .quick-input input {
-            flex: 1;
-            background: var(--input-bg);
-            color: var(--input-fg);
-            border: 1px solid var(--input-border);
-            padding: 6px;
-            border-radius: 2px;
         }
     </style>
 </head>
@@ -242,8 +251,8 @@
     <div class="main-content">
         <div class="toolbar">
             <div class="connection-controls" style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="ipAddress" placeholder="Team # or IP (e.g. 1234 or 10.12.34.2)"
-                    style="background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--input-border); padding: 6px; border-radius: 2px; width: 200px;">
+                <input type="text" id="ipAddress" placeholder="Team # or IP" value="127.0.0.1"
+                    style="background: var(--input-bg); color: var(--input-fg); border: 1px solid var(--input-border); padding: 6px; border-radius: 2px; width: 150px;">
                 <button class="btn" id="connectBtn">Connect</button>
             </div>
             <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
@@ -255,10 +264,7 @@
             <div class="tuner-section" id="tunerSection">
                 <div class="empty-state">
                     <h2>🎛️ PID Tuner</h2>
-                    <p>Connect to your robot to start tuning PID controllers</p>
-                    <p style="font-size: 0.9em; margin-top: 20px;">
-                        Make sure NetworkTables is running on your robot and you're connected to the same network.
-                    </p>
+                    <p>Connect to robot to start tuning</p>
                 </div>
             </div>
         </div>
@@ -267,34 +273,42 @@
     <script>
         const vscode = acquireVsCodeApi();
         let currentController = null;
-        let pidValues = {};
+        let pidData = {}; // Stores current values
+        let graphData = {
+            times: [],
+            measurements: [],
+            setpoints: [],
+            outputs: []
+        };
+        let graphCtx = null;
+        let isDrawing = false;
+        let startTime = Date.now();
 
-        // Connect button
+        // Connect
         document.getElementById('connectBtn').addEventListener('click', () => {
             const ip = document.getElementById('ipAddress').value || '127.0.0.1';
             vscode.postMessage({ command: 'connect', address: ip });
         });
 
-        // Refresh button
+        // Refresh
         document.getElementById('refreshBtn').addEventListener('click', () => {
             vscode.postMessage({ command: 'refresh' });
         });
 
-        // Save button
+        // Save
         document.getElementById('saveBtn').addEventListener('click', () => {
-            if (currentController && pidValues[currentController]) {
+            if (currentController && pidData[currentController]) {
                 vscode.postMessage({
                     command: 'save',
                     controller: currentController,
-                    values: pidValues[currentController]
+                    values: pidData[currentController]
                 });
             }
         });
 
-        // Handle messages from extension
+        // Messages
         window.addEventListener('message', event => {
             const message = event.data;
-
             switch (message.command) {
                 case 'connectionStatus':
                     updateConnectionStatus(message.connected);
@@ -303,14 +317,18 @@
                     updateControllerList(message.controllers);
                     break;
                 case 'pidValues':
-                    updatePIDValues(message.controller, message.values);
+                    // If we receive new values for the current controller, update graph and UI
+                    if (message.controller === currentController) {
+                        updatePIDUI(message.values);
+                        updateGraphData(message.values);
+                    }
+                    // Always store latest data
+                    if (!pidData[message.controller]) pidData[message.controller] = {};
+                    Object.assign(pidData[message.controller], message.values);
                     break;
                 case 'saveResult':
-                    if (message.ok) {
-                        alert('Saved PID values to constants file.');
-                    } else {
-                        alert('Failed to save PID values: ' + (message.error || 'Unknown error'));
-                    }
+                    if (message.ok) alert('Saved!');
+                    else alert('Error: ' + message.error);
                     break;
             }
         });
@@ -318,7 +336,6 @@
         function updateConnectionStatus(connected) {
             const indicator = document.getElementById('statusIndicator');
             const text = document.getElementById('statusText');
-
             if (connected) {
                 indicator.classList.add('connected');
                 text.textContent = 'Connected';
@@ -326,23 +343,22 @@
             } else {
                 indicator.classList.remove('connected');
                 text.textContent = 'Disconnected';
-                document.getElementById('connectBtn').textContent = 'Connect to Robot';
+                document.getElementById('connectBtn').textContent = 'Connect';
             }
         }
 
         function updateControllerList(controllers) {
             const list = document.getElementById('subsystemList');
-
             if (!controllers || controllers.length === 0) {
-                list.innerHTML = '<div class="empty-state" style="padding: 20px;"><p>No PID controllers detected</p></div>';
+                list.innerHTML = '<div class="empty-state" style="padding:20px;"><p>No controllers</p></div>';
                 return;
             }
-
             list.innerHTML = '';
             controllers.forEach(controller => {
                 const item = document.createElement('div');
                 item.className = 'subsystem-item';
                 item.textContent = controller;
+                if (controller === currentController) item.classList.add('active');
                 item.onclick = () => selectController(controller);
                 list.appendChild(item);
             });
@@ -350,101 +366,335 @@
 
         function selectController(controller) {
             currentController = controller;
+            // Reset graph
+            graphData = { times: [], measurements: [], setpoints: [], outputs: [] };
+            startTime = Date.now();
 
-            // Update active state
             document.querySelectorAll('.subsystem-item').forEach(item => {
                 item.classList.toggle('active', item.textContent === controller);
             });
 
-            // Request PID values
+            // Clear UI initially
+            document.getElementById('tunerSection').innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+
             vscode.postMessage({ command: 'getValues', controller: controller });
         }
 
-        function updatePIDValues(controller, values) {
-            pidValues[controller] = values;
-
-            if (controller !== currentController) return;
-
-            // Sort keys: Standard params first, then alphabetical
-            const priority = ['kP', 'kI', 'kD', 'kF', 'kS', 'kV', 'kA', 'kG'];
-            const keys = Object.keys(values).sort((a, b) => {
-                const idxA = priority.indexOf(a);
-                const idxB = priority.indexOf(b);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
-
-            let controlsHtml = `<h3>${controller}</h3>`;
-
-            keys.forEach(key => {
-                const val = values[key];
-                // Skip if not a number
-                if (typeof val !== 'number') return;
-
-                // Determine sensible max range
-                let max = 1;
-                if (key.includes('Velocity') || key.includes('Max')) max = 10;
-                else if (key === 'kP') max = 10;
-                else if (key === 'kD' || key === 'kV') max = 5;
-
-                controlsHtml += `
-                    <div class="slider-group">
-                        <div class="slider-label">
-                            <span>${key}</span>
-                            <span class="value" id="${key}-value">${(val || 0).toFixed(4)}</span>
-                        </div>
-                        <input type="range" id="${key}-slider" data-param="${key}" min="0" max="${max}" step="0.001" value="${val || 0}">
-                        <div class="quick-input">
-                            <input type="number" id="${key}-input" data-param="${key}" value="${val || 0}" step="0.001" placeholder="Enter ${key}">
-                        </div>
+        function createControlItem(key, label, val, min = 0, max = 1, step = 0.0001, readonly = false) {
+            if (readonly) {
+                return `
+                    <div class="control-item">
+                        <div class="control-label"><span>${label || key}</span></div>
+                        <div class="readonly-display">${val !== undefined ? val.toFixed(4) : '-'}</div>
                     </div>
                 `;
+            }
+            const valSafe = val !== undefined ? val : 0;
+            return `
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>${label || key}</span>
+                        <span class="value-display" id="disp-${key}">${valSafe.toFixed(4)}</span>
+                    </div>
+                    <input type="range" id="slider-${key}" min="${min}" max="${max}" step="${step}" value="${valSafe}" oninput="onInput('${key}', this.value)">
+                    <input type="number" id="input-${key}" value="${valSafe}" step="${step}" onchange="onChange('${key}', this.value)">
+                </div>
+            `;
+        }
+
+        // Expose handlers globally
+        window.onInput = (key, val) => {
+            const input = document.getElementById(`input-${key}`);
+            const disp = document.getElementById(`disp-${key}`);
+            if (input) input.value = val;
+            if (disp) disp.textContent = parseFloat(val).toFixed(4);
+            sendUpdate(key, val);
+        };
+
+        window.onChange = (key, val) => {
+            const slider = document.getElementById(`slider-${key}`);
+            const disp = document.getElementById(`disp-${key}`);
+            if (slider) slider.value = val;
+            if (disp) disp.textContent = parseFloat(val).toFixed(4);
+            sendUpdate(key, val);
+        };
+
+        function sendUpdate(key, val) {
+            if (!currentController) return;
+            const floatVal = parseFloat(val);
+            if (isNaN(floatVal)) return;
+
+            if (!pidData[currentController]) pidData[currentController] = {};
+            pidData[currentController][key] = floatVal;
+
+            vscode.postMessage({
+                command: 'updatePID',
+                controller: currentController,
+                param: key,
+                value: floatVal
             });
+        }
 
-            const tunerSection = document.getElementById('tunerSection');
-            tunerSection.innerHTML = `<div class="pid-control">${controlsHtml}</div><div class="graph-container"><div style="opacity: 0.6;">📊 Response graph coming soon...</div></div>`;
+        function updatePIDUI(values) {
+            // Check if structure exists, if not create it
+            const section = document.getElementById('tunerSection');
+            if (!section.querySelector('.pid-container')) {
+                // Initial render
+                renderStructure(values);
+            } else {
+                // Update specific values strictly to avoid layout jank
+                for (const [key, val] of Object.entries(values)) {
+                    if (typeof val !== 'number') continue;
 
-            // Attach listeners
-            keys.forEach(key => {
-                if (typeof values[key] !== 'number') return;
-                const slider = document.getElementById(`${key}-slider`);
-                const input = document.getElementById(`${key}-input`);
-                const valueDisplay = document.getElementById(`${key}-value`);
+                    const slider = document.getElementById(`slider-${key}`);
+                    const input = document.getElementById(`input-${key}`);
+                    const disp = document.getElementById(`disp-${key}`);
 
-                if (!slider || !input) return;
+                    if (slider && document.activeElement !== slider) slider.value = val;
+                    if (input && document.activeElement !== input) input.value = val;
+                    if (disp) disp.textContent = val.toFixed(4);
+                }
+            }
+        }
 
-                const update = (val) => {
-                    const floatVal = parseFloat(val);
-                    if (isNaN(floatVal)) return;
-                    valueDisplay.textContent = floatVal.toFixed(4);
-                    pidValues[controller][key] = floatVal;
-                    sendPIDUpdate(controller, key, floatVal);
-                };
+        function renderStructure(values) {
+            // Group keys
+            // Mappings handles case insensitivity and aliases
+            const findVal = (aliases) => {
+                for (const a of aliases) {
+                    if (values[a] !== undefined) return { key: a, val: values[a] };
+                    // Check mixed case
+                    const match = Object.keys(values).find(k => k.toLowerCase() === a.toLowerCase());
+                    if (match) return { key: match, val: values[match] };
+                }
+                return { key: aliases[0], val: undefined };
+            };
 
-                slider.addEventListener('input', (e) => {
-                    input.value = e.target.value;
-                    update(e.target.value);
-                });
+            // Helper to generate a control block for a set of possible keys
+            const renderControl = (aliases, label, min, max, step, readonly) => {
+                const { key, val } = findVal(aliases);
+                return createControlItem(key, label, val, min, max, step, readonly);
+            };
 
-                input.addEventListener('change', (e) => {
-                    slider.value = e.target.value;
-                    update(e.target.value);
-                });
-            });
+            const html = `
+                <div class="pid-header">${currentController}</div>
+                <div class="pid-container">
+                    
+                    <!-- PID Row -->
+                    <div class="control-row">
+                        ${renderControl(['p', 'kP'], 'P', 0, 10, 0.0001)}
+                        ${renderControl(['i', 'kI'], 'I', 0, 10, 0.0001)}
+                        ${renderControl(['d', 'kD'], 'D', 0, 10, 0.0001)}
+                    </div>
 
+                    <!-- FF Row -->
+                    <div class="control-row">
+                        ${renderControl(['kS', 's'], 'S', 0, 12, 0.0001)}
+                        ${renderControl(['kV', 'v'], 'V', 0, 12, 0.0001)}
+                        ${renderControl(['kA', 'a'], 'A', 0, 5, 0.0001)}
+                        ${renderControl(['kG', 'g'], 'G', 0, 5, 0.0001)}
+                    </div>
+
+                    <!-- Range Row -->
+                    <div class="control-row">
+                        ${renderControl(['minOutput', 'min'], 'Min Output', -1, 0, 0.01)}
+                        ${renderControl(['maxOutput', 'max'], 'Max Output', 0, 1, 0.01)}
+                    </div>
+
+                    <!-- Setpoint Row -->
+                    <div class="control-row">
+                        ${renderControl(['setpoint'], 'Setpoint', -100, 100, 0.1)}
+                    </div>
+
+                    <!-- Errors Row (Read Only) -->
+                    <div class="control-row">
+                         ${renderControl(['total error'], 'Total Error', 0, 0, 0, true)}
+                         ${renderControl(['previous error'], 'Prev Error', 0, 0, 0, true)}
+                    </div>
+
+                </div>
+                
+                <div class="graph-container">
+                    <canvas id="pidGraph"></canvas>
+                </div>
+            `;
+
+            document.getElementById('tunerSection').innerHTML = html;
+
+            // Init Graph
+            initGraph();
             document.getElementById('saveBtn').disabled = false;
         }
 
-        function sendPIDUpdate(controller, param, value) {
-            vscode.postMessage({
-                command: 'updatePID',
-                controller: controller,
-                param: param,
-                value: value
-            });
+        function updateGraphData(values) {
+            const time = (Date.now() - startTime) / 1000;
+            // Handle lowercase measurement/setpoint matching just in case
+            const getVal = (keys, def = 0) => {
+                for (const k of keys) {
+                    if (values[k] !== undefined) return values[k];
+                    const m = Object.keys(values).find(x => x.toLowerCase() === k.toLowerCase());
+                    if (m) return values[m];
+                }
+                // If not found in current update, fallback to stored data?
+                if (pidData[currentController]) {
+                    for (const k of keys) {
+                        if (pidData[currentController][k] !== undefined) return pidData[currentController][k];
+                    }
+                }
+                return def;
+            };
+
+            const measurement = getVal(['measurement']);
+            const setpoint = getVal(['setpoint']);
+            const output = getVal(['output']);
+
+            graphData.times.push(time);
+            graphData.measurements.push(measurement);
+            graphData.setpoints.push(setpoint);
+            if (!graphData.outputs) graphData.outputs = [];
+            graphData.outputs.push(output);
+
+            // Keep only last 10 seconds of data (approx 500 points at 20ms)
+            if (graphData.times.length > 500) {
+                graphData.times.shift();
+                graphData.measurements.shift();
+                graphData.setpoints.shift();
+                if (graphData.outputs) graphData.outputs.shift();
+            }
+
+            drawGraph();
         }
+
+        function initGraph() {
+            const canvas = document.getElementById('pidGraph');
+            if (!canvas) return;
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            graphCtx = canvas.getContext('2d');
+            graphCtx.scale(dpr, dpr);
+        }
+
+        function drawGraph() {
+            if (!graphCtx || !graphData.times.length) return;
+            const canvas = document.getElementById('pidGraph');
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            const ctx = graphCtx;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Background grid
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--vscode-editor-background');
+            ctx.fillRect(0, 0, width, height);
+
+            const times = graphData.times;
+            const maxTime = times[times.length - 1];
+            const minTime = times[0];
+            const timeRange = maxTime - minTime || 1;
+
+            // X Helper
+            const getX = (t) => ((t - minTime) / timeRange) * width;
+
+            // --- Primary Axis (Measurement/Setpoint) ---
+            let minP = Math.min(...graphData.measurements, ...graphData.setpoints);
+            let maxP = Math.max(...graphData.measurements, ...graphData.setpoints);
+            let rangeP = maxP - minP;
+            if (rangeP < 0.1) rangeP = 1;
+            const padP = rangeP * 0.1;
+            minP -= padP; maxP += padP; rangeP = maxP - minP;
+
+            const getY_Primary = (v) => height - ((v - minP) / rangeP) * height;
+
+            // --- Secondary Axis (Output) ---
+            const outputs = graphData.outputs || [];
+            let minS = 0, maxS = 0;
+            if (outputs.length) {
+                minS = Math.min(...outputs);
+                maxS = Math.max(...outputs);
+            }
+            if (minS > -1) minS = -1;
+            if (maxS < 1) maxS = 1;
+
+            let rangeS = maxS - minS;
+            if (rangeS < 0.1) rangeS = 1;
+            const padS = rangeS * 0.1;
+            minS -= padS; maxS += padS; rangeS = maxS - minS;
+
+            const getY_Secondary = (v) => height - ((v - minS) / rangeS) * height;
+
+            // Draw Zero Lines
+            ctx.lineWidth = 1;
+
+            // Primary Zero
+            if (minP < 0 && maxP > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                const y0 = getY_Primary(0);
+                ctx.moveTo(0, y0);
+                ctx.lineTo(width, y0);
+                ctx.stroke();
+            }
+
+            // Secondary Zero
+            if (minS < 0 && maxS > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 100, 100, 0.2)';
+                const y0 = getY_Secondary(0);
+                ctx.moveTo(0, y0);
+                ctx.lineTo(width, y0);
+                ctx.stroke();
+            }
+
+            // Draw Path Helper
+            const drawPath = (data, getColor, getYFunc) => {
+                if (!data || !data.length) return;
+                ctx.beginPath();
+                ctx.strokeStyle = getColor;
+                ctx.lineWidth = 2;
+                for (let i = 0; i < times.length; i++) {
+                    const x = getX(times[i]);
+                    const y = getYFunc(data[i]);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            };
+
+            // Draw Output (Red - Secondary)
+            if (outputs.length) drawPath(outputs, '#FF5252', getY_Secondary);
+
+            // Draw Setpoint (Green - Primary)
+            drawPath(graphData.setpoints, '#4CAF50', getY_Primary);
+
+            // Draw Measurement (Blue - Primary)
+            drawPath(graphData.measurements, '#2196F3', getY_Primary);
+
+            // Legend
+            ctx.font = 'bold 12px monospace';
+
+            ctx.fillStyle = '#4CAF50';
+            const spVal = graphData.setpoints.length ? graphData.setpoints[graphData.setpoints.length - 1] : 0;
+            ctx.fillText(`SP: ${spVal.toFixed(2)}`, 10, 20);
+
+            ctx.fillStyle = '#2196F3';
+            const meVal = graphData.measurements.length ? graphData.measurements[graphData.measurements.length - 1] : 0;
+            ctx.fillText(`PV: ${meVal.toFixed(2)}`, 10, 35);
+
+            ctx.fillStyle = '#FF5252';
+            const outVal = outputs.length ? outputs[outputs.length - 1] : 0;
+            const outText = `OUT: ${outVal.toFixed(2)}`;
+            const textWidth = ctx.measureText(outText).width;
+            ctx.fillText(outText, width - textWidth - 10, 20);
+        }
+
+        // Handle resize
+        window.onresize = () => {
+            initGraph();
+            drawGraph();
+        };
+
     </script>
 </body>
 

@@ -1,5 +1,5 @@
 const { exists } = require('../utils/fsUtils');
-const vscode = require('vscode');
+
 const path = require('path');
 
 const VENDOR_FILES = {
@@ -58,76 +58,199 @@ function generateHardwareCode(hardwareList, subsystemName, useConstants, constan
     const constantDefinitions = [];
 
     hardwareList.forEach(device => {
-        const { type, name, id, bus, helperMethods: methodsToGen } = device;
+        let { type, name, id, bus, helperMethods: methodsToGen } = device;
+        let importPath = device.import;
 
-        // Resolve ID value
+        // Handle Nested Controller Override
+        if (device.controller) {
+            type = device.controller.type;
+            id = device.controller.id;
+            if (device.controller.import) importPath = device.controller.import;
+        }
+
+        // Add import if known
+        if (importPath) imports.add(importPath);
+
+        // Resolve ID value (Constant vs Literal)
         let idVal = id;
-        if (useConstants) {
+        // Skip constant generation for things that don't need IDs (like Limelight generic)
+        const needsID = !['Limelight', 'Limelight 3/3A', 'Limelight 4'].some(l => type.includes(l));
+
+        if (useConstants && needsID) {
             const constName = `k${name.charAt(0).toUpperCase() + name.slice(1)}ID`;
             const constClass = `${constantsClassName}.${subsystemName}Constants`;
             idVal = `${constClass}.${constName}`;
             constantDefinitions.push({ name: constName, value: id, type: 'int' });
         }
 
-        // --- CTRE (Phoenix 6 Defaults) ---
-        if (type === 'TalonFX') {
-            imports.add('com.ctre.phoenix6.hardware.TalonFX');
-            declarations.push(`  private final TalonFX ${name};`);
-            initializers.push(`    ${name} = new TalonFX(${idVal}, "${bus || 'rio'}");`);
+        switch (type) {
+            // --- CTRE Phoenix 6 ---
+            case 'TalonFX':
+            case 'Kraken X60':
+            case 'Kraken X44':
+                imports.add('com.ctre.phoenix6.hardware.TalonFX');
+                declarations.push(`  private final TalonFX ${name};`);
+                initializers.push(`    ${name} = new TalonFX(${idVal}, "${bus || 'rio'}");`);
+                if (methodsToGen?.includes('getVelocity'))
+                    helperMethods.push(`  public double get${name}Velocity() {\n    return ${name}.getVelocity().getValue();\n  }`);
+                if (methodsToGen?.includes('getPosition'))
+                    helperMethods.push(`  public double get${name}Position() {\n    return ${name}.getPosition().getValue();\n  }`);
+                break;
 
-            if (methodsToGen && methodsToGen.find(m => m === 'getVelocity')) {
-                helperMethods.push(`  public double get${name}Velocity() {\n    return ${name}.getVelocity().getValue();\n  }`);
-            }
-            if (methodsToGen && methodsToGen.find(m => m === 'getPosition')) {
-                helperMethods.push(`  public double get${name}Position() {\n    return ${name}.getPosition().getValue();\n  }`);
-            }
-        } else if (type === 'CANcoder') {
-            imports.add('com.ctre.phoenix6.hardware.CANcoder');
-            declarations.push(`  private final CANcoder ${name};`);
-            initializers.push(`    ${name} = new CANcoder(${idVal}, "${bus || 'rio'}");`);
-            if (methodsToGen && methodsToGen.find(m => m === 'getPosition')) {
-                helperMethods.push(`  public double get${name}Position() {\n    return ${name}.getAbsolutePosition().getValue();\n  }`);
-            }
-        } else if (type === 'Pigeon2') {
-            imports.add('com.ctre.phoenix6.hardware.Pigeon2');
-            declarations.push(`  private final Pigeon2 ${name};`);
-            initializers.push(`    ${name} = new Pigeon2(${idVal}, "${bus || 'rio'}");`);
-            if (methodsToGen && methodsToGen.find(m => m === 'getYaw')) {
-                helperMethods.push(`  public double get${name}Yaw() {\n    return ${name}.getYaw().getValue();\n  }`);
-            }
+            case 'TalonFXS':
+            case 'CTR Minion':
+                // Minion is just a motor on a TalonFXS
+                imports.add('com.ctre.phoenix6.hardware.TalonFXS');
+                declarations.push(`  private final TalonFXS ${name};`);
+                initializers.push(`    ${name} = new TalonFXS(${idVal}, "${bus || 'rio'}");`);
+                if (methodsToGen?.includes('getVelocity'))
+                    helperMethods.push(`  public double get${name}Velocity() {\n    return ${name}.getVelocity().getValue();\n  }`);
+                break;
+
+            case 'CANcoder':
+                imports.add('com.ctre.phoenix6.hardware.CANcoder');
+                declarations.push(`  private final CANcoder ${name};`);
+                initializers.push(`    ${name} = new CANcoder(${idVal}, "${bus || 'rio'}");`);
+                if (methodsToGen?.includes('getPosition'))
+                    helperMethods.push(`  public double get${name}Position() {\n    return ${name}.getAbsolutePosition().getValue();\n  }`);
+                break;
+
+            case 'Pigeon 2.0':
+            case 'Pigeon2':
+                imports.add('com.ctre.phoenix6.hardware.Pigeon2');
+                declarations.push(`  private final Pigeon2 ${name};`);
+                initializers.push(`    ${name} = new Pigeon2(${idVal}, "${bus || 'rio'}");`);
+                if (methodsToGen?.includes('getYaw'))
+                    helperMethods.push(`  public double get${name}Yaw() {\n    return ${name}.getYaw().getValue();\n  }`);
+                break;
+
+            case 'CANrange':
+                imports.add('com.ctre.phoenix6.hardware.CANrange');
+                declarations.push(`  private final CANrange ${name};`);
+                initializers.push(`    ${name} = new CANrange(${idVal}, "${bus || 'rio'}");`);
+                break;
+
+            case 'CANdi':
+                imports.add('com.ctre.phoenix6.hardware.CANdi');
+                declarations.push(`  private final CANdi ${name};`);
+                initializers.push(`    ${name} = new CANdi(${idVal}, "${bus || 'rio'}");`);
+                break;
+
+            // --- CTRE Phoenix 5 (Legacy) ---
+            case 'TalonSRX':
+                imports.add('com.ctre.phoenix.motorcontrol.can.TalonSRX');
+                declarations.push(`  private final TalonSRX ${name};`);
+                initializers.push(`    ${name} = new TalonSRX(${idVal});`);
+                break;
+
+            case 'VictorSPX':
+                imports.add('com.ctre.phoenix.motorcontrol.can.VictorSPX');
+                declarations.push(`  private final VictorSPX ${name};`);
+                initializers.push(`    ${name} = new VictorSPX(${idVal});`);
+                break;
+
+            case 'CANdle':
+                imports.add('com.ctre.phoenix.led.CANdle');
+                declarations.push(`  private final CANdle ${name};`);
+                initializers.push(`    ${name} = new CANdle(${idVal}, "${bus || 'rio'}");`);
+                break;
 
             // --- REV Robotics ---
-        } else if (type === 'CANSparkMax') {
-            imports.add('com.revrobotics.CANSparkMax');
-            imports.add('com.revrobotics.CANSparkLowLevel.MotorType'); // REVLib 2024
-            declarations.push(`  private final CANSparkMax ${name};`);
-            initializers.push(`    ${name} = new CANSparkMax(${idVal}, MotorType.kBrushless);`);
-            if (methodsToGen && methodsToGen.find(m => m === 'getVelocity')) {
-                helperMethods.push(`  public double get${name}Velocity() {\n    return ${name}.getEncoder().getVelocity();\n  }`);
-            }
-            if (methodsToGen && methodsToGen.find(m => m === 'getPosition')) {
-                helperMethods.push(`  public double get${name}Position() {\n    return ${name}.getEncoder().getPosition();\n  }`);
-            }
+            case 'CANSparkMax':
+            case 'SPARK MAX':
+            case 'Core Hex Motor': // If using SparkMax
+                imports.add('com.revrobotics.CANSparkMax');
+                imports.add('com.revrobotics.CANSparkLowLevel.MotorType');
+                declarations.push(`  private final CANSparkMax ${name};`);
+                initializers.push(`    ${name} = new CANSparkMax(${idVal}, MotorType.kBrushless);`);
+                if (methodsToGen?.includes('getVelocity'))
+                    helperMethods.push(`  public double get${name}Velocity() {\n    return ${name}.getEncoder().getVelocity();\n  }`);
+                break;
 
-            // --- WPILib ---
-        } else if (type === 'DoubleSolenoid') {
-            imports.add('edu.wpi.first.wpilibj.DoubleSolenoid');
-            imports.add('edu.wpi.first.wpilibj.PneumaticsModuleType');
-            // Solenoid usually takes two ports, forward and reverse. The current UI only asks for one ID.
-            // Assuming user inputs one ID and logic adds 1 for the second, as per previous code.
-            // If using constants, we might want kForwardID and kReverseID?
-            // For simplicity, let's keep the existing logic where second port is id+1,
-            // but if constants are used, we might need to handle the math or generate two constants.
-            // Given 'idVal' assumes it's a number OR a static final field reference, doing arithmetic on it in Java (const + 1) is fine.
-            declarations.push(`  private final DoubleSolenoid ${name};`);
-            initializers.push(`    ${name} = new DoubleSolenoid(PneumaticsModuleType.CTREPCM, ${idVal}, ${idVal} + 1);`);
-            if (methodsToGen && methodsToGen.find(m => m === 'toggle')) {
-                imports.add('edu.wpi.first.wpilibj.DoubleSolenoid.Value');
-                helperMethods.push(`  public void toggle${name}() {\n    ${name}.toggle();\n  }`);
-            }
-        } else {
-            // Generic Fallback
-            initializers.push(`    // Unknown device type: ${type}`);
+            case 'CANSparkFlex':
+            case 'SparkFlex':
+            case 'NEO Vortex':
+                imports.add('com.revrobotics.spark.SparkFlex');
+                imports.add('com.revrobotics.spark.SparkLowLevel.MotorType');
+                declarations.push(`  private final SparkFlex ${name};`);
+                initializers.push(`    ${name} = new SparkFlex(${idVal}, MotorType.kBrushless);`);
+                break;
+
+            case 'Color Sensor V3':
+            case 'Color Sensor V2':
+                imports.add('com.revrobotics.ColorSensorV3');
+                imports.add('edu.wpi.first.wpilibj.I2C');
+                declarations.push(`  private final ColorSensorV3 ${name};`);
+                initializers.push(`    ${name} = new ColorSensorV3(I2C.Port.kOnboard); // Verify port`);
+                break;
+
+            // --- Sensors / WPILib ---
+            case 'NavX2 MXP':
+            case 'NavX2-Micro':
+                imports.add('com.kauailabs.navx.frc.AHRS');
+                imports.add('edu.wpi.first.wpilibj.SPI');
+                declarations.push(`  private final AHRS ${name};`);
+                initializers.push(`    ${name} = new AHRS(SPI.Port.kMXP);`);
+                break;
+
+            case 'Limelight 4':
+            case 'Limelight 3/3A':
+            case 'Limelight':
+                imports.add('edu.wpi.first.networktables.NetworkTable');
+                imports.add('edu.wpi.first.networktables.NetworkTableInstance');
+                declarations.push(`  private final NetworkTable ${name};`);
+                initializers.push(`    ${name} = NetworkTableInstance.getDefault().getTable("limelight");`);
+                break;
+
+            case 'DoubleSolenoid':
+                imports.add('edu.wpi.first.wpilibj.DoubleSolenoid');
+                imports.add('edu.wpi.first.wpilibj.PneumaticsModuleType');
+                declarations.push(`  private final DoubleSolenoid ${name};`);
+                // Simple assumption: CTREPCM
+                initializers.push(`    ${name} = new DoubleSolenoid(PneumaticsModuleType.CTREPCM, ${idVal}, ${idVal} + 1);`);
+                if (methodsToGen?.includes('toggle')) {
+                    helperMethods.push(`  public void toggle${name}() {\n    ${name}.toggle();\n  }`);
+                }
+                break;
+
+            case 'Solenoid':
+                imports.add('edu.wpi.first.wpilibj.Solenoid');
+                imports.add('edu.wpi.first.wpilibj.PneumaticsModuleType');
+                declarations.push(`  private final Solenoid ${name};`);
+                initializers.push(`    ${name} = new Solenoid(PneumaticsModuleType.CTREPCM, ${idVal});`);
+                if (methodsToGen?.includes('toggle')) {
+                    helperMethods.push(`  public void toggle${name}() {\n    ${name}.toggle();\n  }`);
+                }
+                break;
+
+            case 'DigitalInput':
+            case 'Touch Sensor':
+            case 'Magnetic Limit':
+                imports.add('edu.wpi.first.wpilibj.DigitalInput');
+                declarations.push(`  private final DigitalInput ${name};`);
+                initializers.push(`    ${name} = new DigitalInput(${idVal});`);
+                break;
+
+            case 'Servo':
+            case 'Servo (2000 Series)':
+                imports.add('edu.wpi.first.wpilibj.Servo');
+                declarations.push(`  private final Servo ${name};`);
+                initializers.push(`    ${name} = new Servo(${idVal});`);
+                break;
+
+            case 'Through Bore Encoder':
+            case 'MAXSpline Encoder':
+            case 'SRX Mag Encoder':
+            case 'DutyCycleEncoder':
+                imports.add('edu.wpi.first.wpilibj.DutyCycleEncoder');
+                declarations.push(`  private final DutyCycleEncoder ${name};`);
+                initializers.push(`    ${name} = new DutyCycleEncoder(${idVal});`);
+                break;
+
+            default:
+                // Fallback for unknown types - generic Object?
+                initializers.push(`    // Unknown device type or initialization logic: ${type}`);
+                break;
         }
     });
 

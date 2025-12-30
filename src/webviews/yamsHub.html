@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAMS Integration Hub</title>
+    <style>
+        :root {
+            --background: var(--vscode-editor-background);
+            --foreground: var(--vscode-editor-foreground);
+            --card-bg: var(--vscode-editorWidget-background);
+            --border: var(--vscode-widget-border);
+            --accent: var(--vscode-textLink-foreground);
+            --button-bg: var(--vscode-button-background);
+            --button-fg: var(--vscode-button-foreground);
+            --button-hover: var(--vscode-button-hoverBackground);
+        }
+
+        body {
+            font-family: var(--vscode-font-family);
+            background-color: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            font-weight: 300;
+            margin-bottom: 10px;
+            text-align: center;
+            background: linear-gradient(120deg, var(--accent), #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            opacity: 0.7;
+            margin-bottom: 50px;
+            font-size: 1.1em;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            border-color: var(--accent);
+        }
+
+        .card.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            filter: grayscale(1);
+        }
+
+        .icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+            font-weight: 500;
+        }
+
+        p {
+            font-size: 0.95em;
+            opacity: 0.8;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background-color: var(--button-hover);
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: transparent;
+            color: var(--foreground);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            font-size: 0.9em;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .back-btn:hover {
+            opacity: 1;
+            border-color: var(--accent);
+        }
+    </style>
+</head>
+
+<body>
+
+    <button class="back-btn" id="backBtn">← Back to Wizard</button>
+
+    <h1>YAMS Integration</h1>
+    <p class="subtitle">Empower your robot with Yet Another Mechanism System. Choose a tool to get started.</p>
+
+    <div class="container" style="max-width: 800px; width: 100%;">
+
+        <!-- Generator Form (Visible by default now per user request) -->
+        <div class="card" style="align-items: stretch; text-align: left;">
+            <div style="text-align:center; margin-bottom: 20px;">
+                <div class="icon" style="font-size: 3em;">⚙️</div>
+                <h2>Mechanism Generator</h2>
+            </div>
+
+            <div class="form-group">
+                <label>Subsystem Name</label>
+                <input type="text" id="subsystemName" placeholder="e.g. ElevatorSubsystem">
+            </div>
+
+            <div class="form-group">
+                <label>Mechanism Type</label>
+                <select id="mechanismType">
+                    <option value="pivot">Pivot (Turret/Wrist)</option>
+                    <option value="elevator">Elevator</option>
+                    <option value="arm">Arm</option>
+                </select>
+            </div>
+
+            <h3 style="margin-top:20px; border-bottom:1px solid var(--border); padding-bottom:5px;">Motor Configuration
+            </h3>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Controller Type</label>
+                    <select id="motorController">
+                        <option value="TalonFX">TalonFX</option>
+                        <option value="SparkMax">SparkMax</option>
+                        <option value="TalonSRX">TalonSRX</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>CAN ID</label>
+                    <input type="number" id="canId" value="1">
+                </div>
+            </div>
+
+            <h3 style="margin-top:20px; border-bottom:1px solid var(--border); padding-bottom:5px;">Control
+                Configuration</h3>
+            <div class="grid-3">
+                <div class="form-group">
+                    <label>kP</label>
+                    <input type="text" id="kP" value="0.0">
+                </div>
+                <div class="form-group">
+                    <label>kI</label>
+                    <input type="text" id="kI" value="0.0">
+                </div>
+                <div class="form-group">
+                    <label>kD</label>
+                    <input type="text" id="kD" value="0.0">
+                </div>
+            </div>
+
+            <label style="margin-top:10px; display:block; font-weight:600;">Feedforward</label>
+            <div class="grid-4" style="margin-top:5px;">
+                <div class="form-group"><label style="font-size:0.8em">kS</label><input type="text" id="kS" value="0.0">
+                </div>
+                <div class="form-group"><label style="font-size:0.8em">kV</label><input type="text" id="kV" value="0.0">
+                </div>
+                <div class="form-group"><label style="font-size:0.8em">kA</label><input type="text" id="kA" value="0.0">
+                </div>
+                <div class="form-group"><label style="font-size:0.8em">kG</label><input type="text" id="kG" value="0.0">
+                </div>
+            </div>
+
+            <div style="margin-top:30px; text-align:right;">
+                <button class="btn" id="generateBtn" style="width:100%;">Generate Code</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 8px;
+            background: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 10px;
+        }
+    </style>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        document.getElementById('generateBtn').addEventListener('click', () => {
+            const data = {
+                subsystemName: document.getElementById('subsystemName').value || 'NewSubsystem',
+                mechanismType: document.getElementById('mechanismType').value,
+                motorConfig: {
+                    controllerType: document.getElementById('motorController').value,
+                    canId: document.getElementById('canId').value
+                },
+                controlConfig: {
+                    kP: document.getElementById('kP').value,
+                    kI: document.getElementById('kI').value,
+                    kD: document.getElementById('kD').value,
+                    kS: document.getElementById('kS').value,
+                    kV: document.getElementById('kV').value,
+                    kA: document.getElementById('kA').value,
+                    kG: document.getElementById('kG').value
+                },
+                telemetry: {}
+            };
+            vscode.postMessage({ command: 'generateYAMS', data: data });
+        });
+
+        document.getElementById('backBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'backToWizard' });
+        });
+    </script>
+</body>
+
+</html>

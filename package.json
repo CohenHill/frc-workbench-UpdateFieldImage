@@ -2,7 +2,7 @@
   "name": "frc-workbench",
   "displayName": "FRC Workbench",
   "description": "A collection of helpful tools for FRC teams, including PID tuning and PathPlanner previews.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "riteshrajas",
   "repository": {
     "type": "git",
@@ -68,6 +68,10 @@
       {
         "command": "frc-workbench.installCustomPID",
         "title": "Install Tuneable PID Class"
+      },
+      {
+        "command": "frc-workbench.checkAndOpenYAMG",
+        "title": "Open YAMG (Mechanism Generator)"
       }
     ],
     "submenus": [

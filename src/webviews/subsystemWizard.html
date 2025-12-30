@@ -69,8 +69,69 @@
             cursor: grabbing;
         }
 
+        .nested-drop-zone {
+            border: 2px dashed #444;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 5px;
+            text-align: center;
+            font-size: 0.85em;
+            color: #aaa;
+            transition: all 0.2s;
+        }
+
+        .nested-drop-zone.drag-over {
+            border-color: var(--vscode-focusBorder);
+            background: rgba(100, 100, 255, 0.1);
+        }
+
+        .nested-device {
+            background: var(--vscode-editor-background);
+            border: 1px solid var(--vscode-panel-border);
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         .device-type-item.dragging {
             opacity: 0.5;
+        }
+
+        .device-type-item img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px;
+        }
+
+        .device-type-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
+        .device-type-item.disabled:hover {
+            background-color: transparent;
+        }
+
+        .search-container {
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 6px;
+            background: var(--input-bg);
+            color: var(--input-fg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            box-sizing: border-box;
         }
 
         .main-content {
@@ -252,13 +313,22 @@
 <body>
     <div class="sidebar">
         <div class="sidebar-header">Device Types (Drag to add)</div>
+        <div class="search-container">
+            <input type="text" class="search-input" id="deviceSearch" placeholder="Search devices..."
+                onkeyup="filterDevices()">
+        </div>
         <div class="device-type-list" id="deviceTypeList"></div>
     </div>
 
     <div class="main-content">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <h1>Create Subsystem</h1>
-            <button class="btn" id="generateBtn">Generate Code</button>
+            <div>
+                <button class="btn" id="yamgBtn"
+                    style="margin-right:10px; background-color: var(--sidebar-bg); border: 1px solid var(--border-color);">Using
+                    YAMG!</button>
+                <button class="btn" id="generateBtn">Generate Code</button>
+            </div>
         </div>
 
         <div class="form-section">
@@ -423,28 +493,175 @@
         const vscode = acquireVsCodeApi();
 
         const deviceTypes = [
-            { name: 'TalonFX', category: 'Motor Controllers', description: 'Falcon 500 integrated motor controller', import: 'com.ctre.phoenix6.hardware.TalonFX' },
-            { name: 'TalonSRX', category: 'Motor Controllers', description: 'CAN-based motor controller', import: 'com.ctre.phoenix.motorcontrol.can.TalonSRX' },
-            { name: 'VictorSPX', category: 'Motor Controllers', description: 'CAN-based motor controller', import: 'com.ctre.phoenix.motorcontrol.can.VictorSPX' },
-            { name: 'CANSparkMax', category: 'Motor Controllers', description: 'REV Robotics motor controller for NEO motors', import: 'com.revrobotics.CANSparkMax' },
-            { name: 'Pigeon2', category: 'Sensors', description: 'IMU (gyroscope + accelerometer)', import: 'com.ctre.phoenix6.hardware.Pigeon2' },
-            { name: 'CANcoder', category: 'Sensors', description: 'Absolute magnetic encoder', import: 'com.ctre.phoenix6.hardware.CANcoder' },
-            { name: 'DoubleSolenoid', category: 'Pneumatics', description: 'Double-acting pneumatic solenoid', import: 'edu.wpi.first.wpilibj.DoubleSolenoid' },
-            { name: 'Solenoid', category: 'Pneumatics', description: 'Single-acting pneumatic solenoid', import: 'edu.wpi.first.wpilibj.Solenoid' },
-            { name: 'DigitalInput', category: 'Sensors', description: 'Digital input sensor (limit switch, etc.)', import: 'edu.wpi.first.wpilibj.DigitalInput' },
-            { name: 'DutyCycleEncoder', category: 'Sensors', description: 'Absolute encoder using PWM duty cycle', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder' }
+            // --- Motor Controllers & Motors ---
+            {
+                name: 'Kraken X60',
+                category: 'Motors',
+                description: 'Brushless Motor w/ Integrated TalonFX', // Clarified it is integrated
+                import: 'com.ctre.phoenix6.hardware.TalonFX',
+                requiredVendor: 'Phoenix6',
+                vendorUrl: 'https://v6.docs.ctr-electronics.com/en/stable/docs/installation/index.html',
+                image: 'media/field.png'
+            },
+            {
+                name: 'Kraken X44',
+                category: 'Motors',
+                description: 'Brushless Motor w/ Integrated TalonFX',
+                import: 'com.ctre.phoenix6.hardware.TalonFX',
+                requiredVendor: 'Phoenix6',
+                vendorUrl: 'https://v6.docs.ctr-electronics.com/en/stable/docs/installation/index.html',
+                image: 'media/talonfx.png'
+            },
+            {
+                name: 'NEO Vortex',
+                category: 'Motors',
+                description: 'Brushless Motor (Requires SparkFlex)', // Explicit requirement
+                import: 'com.revrobotics.spark.SparkFlex',
+                requiredVendor: 'REVLib',
+                vendorUrl: 'https://docs.revrobotics.com/brushless/spark-flex/software-resources',
+                image: 'media/sparkflex.png',
+                needsController: true,
+                validControllers: ['SparkFlex', 'SPARK MAX']
+            },
+            {
+                name: 'CTR Minion',
+                category: 'Motors',
+                description: 'Brushless Motor (Requires TalonFXS)', // Explicit requirement
+                import: 'com.ctre.phoenix6.hardware.TalonFXS',
+                requiredVendor: 'Phoenix6',
+                vendorUrl: 'https://v6.docs.ctr-electronics.com/',
+                image: 'media/talonfxs.png',
+                needsController: true,
+                validControllers: ['TalonFXS']
+            },
+            {
+                name: 'Core Hex Motor',
+                category: 'Motors',
+                description: 'Smart Motor (Requires ext. Controller)',
+                import: 'com.revrobotics.CANSparkMax',
+                requiredVendor: 'REVLib',
+                vendorUrl: 'https://docs.revrobotics.com/',
+                image: 'media/sparkmax.png',
+                needsController: true,
+                validControllers: ['CANSparkMax', 'SPARK MAX', 'TalonSRX', 'VictorSPX']
+            },
+            // --- Controllers ---
+            {
+                name: 'TalonFX',
+                category: 'Motor Controllers',
+                description: 'Integrated Controller (Kraken/Falcon)',
+                import: 'com.ctre.phoenix6.hardware.TalonFX',
+                requiredVendor: 'Phoenix6',
+                vendorUrl: 'https://v6.docs.ctr-electronics.com/',
+                image: 'media/talonfx.png'
+            },
+            {
+                name: 'TalonFXS',
+                category: 'Motor Controllers',
+                description: 'Controller for Minion/NEO/Vortex',
+                import: 'com.ctre.phoenix6.hardware.TalonFXS',
+                requiredVendor: 'Phoenix6',
+                vendorUrl: 'https://v6.docs.ctr-electronics.com/',
+                image: 'media/talonfxs.png'
+            },
+            {
+                name: 'SPARK MAX',
+                category: 'Motor Controllers',
+                description: 'Controller for NEO/CIM/775',
+                import: 'com.revrobotics.spark.SparkMax',
+                requiredVendor: 'REVLib',
+                vendorUrl: 'https://docs.revrobotics.com/brushless/spark-max/software-resources',
+                image: 'media/sparkmax.png'
+            },
+            {
+                name: 'SparkFlex',
+                category: 'Motor Controllers',
+                description: 'Controller for NEO Vortex',
+                import: 'com.revrobotics.spark.SparkFlex',
+                requiredVendor: 'REVLib',
+                vendorUrl: 'https://docs.revrobotics.com/brushless/spark-flex/software-resources',
+                image: 'media/sparkflex.png'
+            },
+            {
+                name: 'TalonSRX',
+                category: 'Motor Controllers',
+                description: 'Brushed Motor Controller (CAN)',
+                import: 'com.ctre.phoenix.motorcontrol.can.TalonSRX',
+                requiredVendor: 'Phoenix',
+                vendorUrl: 'https://maven.ctr-electronics.com/release/com/ctre/phoenix/Phoenix5-frc2024-latest.json',
+                image: 'media/talonsrx.png'
+            },
+            {
+                name: 'VictorSPX',
+                category: 'Motor Controllers',
+                description: 'Brushed Motor Controller (CAN)',
+                import: 'com.ctre.phoenix.motorcontrol.can.VictorSPX',
+                requiredVendor: 'Phoenix',
+                vendorUrl: 'https://maven.ctr-electronics.com/release/com/ctre/phoenix/Phoenix5-frc2024-latest.json',
+                image: 'media/victorspx.png'
+            },
+
+            // --- Sensors ---
+            { name: 'Pigeon 2.0', category: 'Sensors', description: 'CTRE IMU (CAN)', import: 'com.ctre.phoenix6.hardware.Pigeon2', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: 'media/pigeon2.png' },
+            { name: 'CANcoder', category: 'Sensors', description: 'CTRE Absolute Encoder (CAN)', import: 'com.ctre.phoenix6.hardware.CANcoder', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: 'media/cancoder.png' },
+            { name: 'CANrange', category: 'Sensors', description: 'CTRE Distance Sensor (CAN)', import: 'com.ctre.phoenix6.hardware.CANrange', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: 'media/new_device.png' },
+            { name: 'SRX Mag Encoder', category: 'Sensors', description: 'CTRE Magnetic Encoder', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: 'media/encoder.png' },
+            { name: 'NavX2 MXP', category: 'Sensors', description: 'KauaiLabs Navigation (MXP Port)', import: 'com.kauailabs.navx.frc.AHRS', requiredVendor: 'NavX', vendorUrl: 'https://docs.studica.com/en/latest/docs/VMX-FRC/software/roborio-setup/index.html', image: 'media/navx.png' },
+            { name: 'NavX2-Micro', category: 'Sensors', description: 'KauaiLabs Navigation (USB)', import: 'com.kauailabs.navx.frc.AHRS', requiredVendor: 'NavX', vendorUrl: 'https://docs.studica.com/en/latest/docs/VMX-FRC/software/roborio-setup/index.html', image: 'media/navx.png' },
+            { name: 'Limelight 4', category: 'Sensors', description: 'Vision Camera (Ethernet)', import: 'edu.wpi.first.networktables.NetworkTable', image: 'media/limelight.png' },
+            { name: 'Limelight 3/3A', category: 'Sensors', description: 'Vision Camera (Ethernet)', import: 'edu.wpi.first.networktables.NetworkTable', image: 'media/limelight.png' },
+            { name: 'Color Sensor V3', category: 'Sensors', description: 'REV Color/Proximity (I2C)', import: 'com.revrobotics.ColorSensorV3', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: 'media/sensor.png' },
+            { name: 'Color Sensor V2', category: 'Sensors', description: 'REV Color/Proximity (I2C)', import: 'com.revrobotics.ColorSensorV3', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: 'media/sensor.png' },
+            { name: '2m Distance Sensor', category: 'Sensors', description: 'REV Time-of-Flight (I2C)', import: 'com.revrobotics.Rev2mDistanceSensor', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: 'media/sensor.png' },
+            { name: 'Through Bore Encoder', category: 'Sensors', description: 'REV Absolute Encoder (DIO/PWM)', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: 'media/encoder.png' },
+            { name: 'MAXSpline Encoder', category: 'Sensors', description: 'REV Absolute Encoder (DIO/PWM)', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: 'media/encoder.png' },
+            { name: 'Laser Distance', category: 'Sensors', description: 'goBILDA/Generic (Analog)', import: 'edu.wpi.first.wpilibj.AnalogInput', image: 'media/sensor.png' },
+            { name: 'LIDAR Lite v3', category: 'Sensors', description: 'Garmin LIDAR (I2C/PWM)', import: 'edu.wpi.first.wpilibj.I2C', image: 'media/sensor.png' },
+            { name: '9-Axis IMU', category: 'Sensors', description: 'Generic IMU (I2C)', import: 'edu.wpi.first.wpilibj.I2C', image: 'media/sensor.png' },
+            { name: 'Absolute IMU Fusion', category: 'Sensors', description: 'BNO055/Generic (I2C)', import: 'edu.wpi.first.wpilibj.I2C', image: 'media/sensor.png' },
+
+            // --- Pneumatics & Actuators ---
+            { name: 'DoubleSolenoid', category: 'Pneumatics', description: 'Double Acting Cylinder Control', import: 'edu.wpi.first.wpilibj.DoubleSolenoid', image: 'media/solenoid.png' },
+            { name: 'Solenoid', category: 'Pneumatics', description: 'Single Acting Cylinder Control', import: 'edu.wpi.first.wpilibj.Solenoid', image: 'media/solenoid.png' },
+            { name: 'Linear Actuator (12V)', category: 'Actuators', description: 'Heavy Duty Actuator (Req. Motor Controller)', import: 'edu.wpi.first.wpilibj.motorcontrol.Spark', image: 'media/motor.png' },
+            { name: 'Servo (2000 Series)', category: 'Actuators', description: 'goBILDA Dual Mode (PWM)', import: 'edu.wpi.first.wpilibj.Servo', image: 'media/servo.png' },
+
+            // --- LEDs & Misc ---
+            { name: 'CANdle', category: 'LEDs', description: 'CTRE LED Controller (CAN)', import: 'com.ctre.phoenix.led.CANdle', requiredVendor: 'Phoenix', vendorUrl: 'https://store.ctr-electronics.com/candle/', image: 'media/candle.png' },
+            { name: 'CANdi', category: 'Misc', description: 'CTRE Digital Input Module (CAN)', import: 'com.ctre.phoenix6.hardware.CANdi', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: 'media/new_device.png' },
+            { name: 'Prism RGB Driver', category: 'LEDs', description: 'goBILDA LED Driver (PWM)', import: 'edu.wpi.first.wpilibj.PWM', image: 'media/led.png' },
+            { name: 'DigitalInput', category: 'Sensors', description: 'Limit Switch/Digital (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: 'media/digitalinput.png' },
+            { name: 'Touch Sensor', category: 'Sensors', description: 'Generic (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: 'media/digitalinput.png' },
+            { name: 'Magnetic Limit', category: 'Sensors', description: 'Generic (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: 'media/digitalinput.png' }
         ];
 
         const devices = [];
         const states = [];
         let draggedDevice = null;
+        let installedVendors = [];
 
-        function renderDeviceTypes() {
+        window.addEventListener('message', event => {
+            const message = event.data;
+            if (message.command === 'updateVendordeps') {
+                installedVendors = message.vendors || [];
+                renderDeviceTypes();
+            }
+        });
+
+        function filterDevices() {
+            const query = document.getElementById('deviceSearch').value.toLowerCase();
+            renderDeviceTypes(query);
+        }
+
+        function renderDeviceTypes(filter = '') {
             const list = document.getElementById('deviceTypeList');
             list.innerHTML = '';
 
             const categories = {};
             deviceTypes.forEach(dt => {
+                if (filter && !dt.name.toLowerCase().includes(filter) && !dt.category.toLowerCase().includes(filter)) {
+                    return;
+                }
                 if (!categories[dt.category]) categories[dt.category] = [];
                 categories[dt.category].push(dt);
             });
@@ -460,27 +677,78 @@
                 categories[category].forEach(dt => {
                     const item = document.createElement('div');
                     item.className = 'device-type-item';
-                    item.draggable = true;
-                    item.textContent = dt.name;
 
-                    item.addEventListener('dragstart', (e) => {
-                        draggedDevice = dt.name;
-                        item.classList.add('dragging');
-                        e.dataTransfer.effectAllowed = 'copy';
-                    });
+                    // Check vendor requirement
+                    const isMissingVendor = dt.requiredVendor && !installedVendors.includes(dt.requiredVendor);
 
-                    item.addEventListener('dragend', () => {
-                        item.classList.remove('dragging');
-                    });
+                    if (isMissingVendor) {
+                        item.classList.add('disabled');
+                        item.title = `Requires ${dt.requiredVendor} library`;
+                    } else {
+                        item.draggable = true;
+                    }
+
+                    // Flex container for image + text
+                    item.style.display = 'flex';
+                    item.style.alignItems = 'center';
+                    item.style.gap = '10px';
+
+                    // Image
+                    const img = document.createElement('img');
+                    // Use a generic placeholder if image fails or is missing, but we set them in data.
+                    // Since we don't have real images yet, use a data URI placeholder or just an icon.
+                    // For now, I'll use a simple colored square data URI if image is not found, handled by onerror
+                    img.src = dt.image || '';
+                    img.onerror = () => { img.style.display = 'none'; }; // Hide if broken
+                    item.appendChild(img);
+
+                    const text = document.createElement('span');
+                    text.textContent = dt.name;
+                    item.appendChild(text);
+
+                    if (!isMissingVendor) {
+                        item.addEventListener('dragstart', (e) => {
+                            draggedDevice = dt.name;
+                            item.classList.add('dragging');
+                            e.dataTransfer.effectAllowed = 'copy';
+                            e.dataTransfer.setData('text/plain', dt.name); // Set data for nested drops
+                        });
+
+                        item.addEventListener('dragend', () => {
+                            item.classList.remove('dragging');
+                        });
+                    }
 
                     item.addEventListener('click', (e) => {
-                        showInfoPopup(dt, e);
+                        if (isMissingVendor) {
+                            showVendorPopup(dt, e);
+                        } else {
+                            showInfoPopup(dt, e);
+                        }
                     });
 
                     list.appendChild(item);
                 });
             });
         }
+
+        function showVendorPopup(deviceType, event) {
+            const popup = document.getElementById('infoPopup');
+            document.getElementById('popupTitle').innerHTML = `⚠️ Missing Library: ${deviceType.requiredVendor}`;
+            document.getElementById('popupDescription').innerHTML =
+                `To use <strong>${deviceType.name}</strong>, you need to install the <strong>${deviceType.requiredVendor}</strong> vendor library.<br><br>` +
+                `<button class="btn" onclick="installVendor('${deviceType.vendorUrl}')">Download Library</button>`;
+
+            document.getElementById('popupImport').style.display = 'none';
+
+            popup.style.display = 'block';
+            popup.style.left = Math.min(event.pageX + 10, window.innerWidth - 320) + 'px';
+            popup.style.top = (event.pageY + 10) + 'px';
+        }
+
+        window.installVendor = (url) => {
+            vscode.postMessage({ command: 'openVendorUrl', url: url });
+        };
 
         const dropZone = document.getElementById('dropZone');
 
@@ -497,9 +765,13 @@
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drag-over');
-            if (draggedDevice) {
-                addDeviceOfType(draggedDevice);
-                draggedDevice = null;
+            const deviceName = e.dataTransfer.getData('text/plain'); // Get data from dragstart
+            if (deviceName) {
+                const deviceType = deviceTypes.find(dt => dt.name === deviceName);
+                if (deviceType) {
+                    addDeviceOfType(deviceType);
+                }
+                draggedDevice = null; // Clear global draggedDevice if used
             }
         });
 
@@ -507,10 +779,12 @@
             const popup = document.getElementById('infoPopup');
             document.getElementById('popupTitle').textContent = deviceType.name;
             document.getElementById('popupDescription').textContent = deviceType.description;
-            document.getElementById('popupImport').innerHTML = `<strong>Import:</strong> <code>${deviceType.import}</code>`;
+            const importEl = document.getElementById('popupImport');
+            importEl.style.display = 'block';
+            importEl.innerHTML = `<strong>Import:</strong> <code>${deviceType.import}</code>`;
 
             popup.style.display = 'block';
-            popup.style.left = (event.pageX + 10) + 'px';
+            popup.style.left = Math.min(event.pageX + 10, window.innerWidth - 320) + 'px';
             popup.style.top = (event.pageY + 10) + 'px';
         }
 
@@ -525,54 +799,180 @@
             }
         });
 
-        function addDeviceOfType(type) {
-            devices.push({ type: type, name: '', id: '', bus: 'rio' });
+        function addDeviceOfType(deviceType) {
+            devices.push({
+                type: deviceType.name,
+                name: '',
+                id: '',
+                bus: 'rio',
+                needsController: deviceType.needsController || false,
+                validControllers: deviceType.validControllers || []
+            });
             renderDevices();
+        }
+
+        function validateDependencies() {
+            // Deprecated global check in favor of per-row nested logic
+            return [];
+        }
+
+        function dropController(e, index) {
+            e.preventDefault();
+            e.stopPropagation();
+            const deviceName = e.dataTransfer.getData('text/plain');
+            const parentDevice = devices[index];
+
+            // Validate
+            const controllerType = deviceTypes.find(d => d.name === deviceName);
+            if (!controllerType) return;
+
+            // Check if valid controller for this motor
+            // Map generic names to specific check strings if needed, but using name directly for now
+            // The validControllers array in deviceTypes uses the 'name' property (e.g., 'TalonFXS') usually
+            if (parentDevice.validControllers && !parentDevice.validControllers.includes(deviceName)) {
+                // Use a more specific popup for this
+                const popup = document.getElementById('infoPopup');
+                document.getElementById('popupTitle').innerHTML = `Incompatible Controller`;
+                document.getElementById('popupDescription').innerHTML =
+                    `<strong>${parentDevice.name}</strong> requires one of these controllers: <strong>${parentDevice.validControllers.join(', ')}</strong>. You tried to add <strong>${deviceName}</strong>.`;
+                document.getElementById('popupImport').style.display = 'none';
+                popup.style.display = 'block';
+                popup.style.left = Math.min(e.pageX + 10, window.innerWidth - 320) + 'px';
+                popup.style.top = (e.pageY + 10) + 'px';
+                return;
+            }
+
+            // Assign controller
+            parentDevice.controller = {
+                type: deviceName,
+                id: 1, // Default ID
+                name: controllerType.name,
+                import: controllerType.import // Capture import path!
+            };
+
+            // Remove highlighting
+            const zone = document.getElementById(`nested-zone-${index}`);
+            if (zone) zone.classList.remove('drag-over');
+
+            renderDevices();
+        }
+
+        function removeNestedController(index) {
+            if (devices[index]) {
+                delete devices[index].controller;
+                renderDevices();
+            }
+        }
+
+        function allowDropController(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function leaveDropController(e) {
+            e.currentTarget.classList.remove('drag-over');
         }
 
         function renderDevices() {
             const table = document.getElementById('deviceTable');
             table.innerHTML = '';
 
+            // Remove old warnings container as we validate per-item now
+            const warningContainer = document.getElementById('validationWarnings');
+            if (warningContainer) warningContainer.remove();
+
             if (devices.length === 0) {
                 const row = document.createElement('tr');
-                row.innerHTML = '<td colspan="5" style="text-align:center; opacity:0.5; padding:20px;">Drag devices here to add them</td>';
+                row.innerHTML = '<td colspan="6" style="text-align:center; opacity:0.5; padding:20px;">Drag devices here to add them</td>';
                 table.appendChild(row);
                 return;
             }
 
             devices.forEach((device, index) => {
                 const row = document.createElement('tr');
-                // Helper Methods Logic based on type
+
+                // --- Helper Methods Check ---
+                // If it has a controller, helper methods generally belong to the controller class
+                let targetType = device.controller ? device.controller.type : device.type;
                 let helpersHtml = '';
-                if (device.type === 'TalonFX' || device.type === 'CANSparkMax') {
+
+                // Allow helpers for certain standalone types OR consistent controller types
+                if (['TalonFX', 'SparkFlex', 'TalonFXS', 'SPARK MAX', 'Kraken X60'].includes(targetType)) {
                     helpersHtml = `
                         <div style="display:flex; flex-direction:column; gap:4px; font-size:0.85em;">
                             <label><input type="checkbox" onchange="toggleHelper(${index}, 'getVelocity', this.checked)" ${device.helperMethods?.includes('getVelocity') ? 'checked' : ''}> getVelocity()</label>
                             <label><input type="checkbox" onchange="toggleHelper(${index}, 'getPosition', this.checked)" ${device.helperMethods?.includes('getPosition') ? 'checked' : ''}> getPosition()</label>
                         </div>
                     `;
-                } else if (device.type === 'CANcoder' || device.type === 'Pigeon2') {
-                    const method = device.type === 'Pigeon2' ? 'getYaw' : 'getPosition';
+                } else if (targetType === 'CANcoder' || targetType === 'Pigeon 2.0') {
+                    const method = targetType === 'Pigeon 2.0' ? 'getYaw' : 'getPosition';
                     helpersHtml = `
                         <label style="font-size:0.85em;"><input type="checkbox" onchange="toggleHelper(${index}, '${method}', this.checked)" ${device.helperMethods?.includes(method) ? 'checked' : ''}> ${method}()</label>
                     `;
-                } else if (device.type.includes('Solenoid')) {
+                } else if (targetType.includes('Solenoid')) {
                     helpersHtml = `
                         <label style="font-size:0.85em;"><input type="checkbox" onchange="toggleHelper(${index}, 'toggle', this.checked)" ${device.helperMethods?.includes('toggle') ? 'checked' : ''}> toggle()</label>
                     `;
                 }
 
+                // --- Nested Controller Logic ---
+                let deviceCellContent = `<div style="display:flex; align-items:center; gap:8px;">${device.type}</div>`;
+
+                // If this device needs a controller
+                if (device.needsController) {
+                    if (device.controller) {
+                        // Controller Attached State
+                        deviceCellContent += `
+                            <div class="nested-device" style="margin-top:5px; font-size:0.9em;">
+                                <span style="display:flex; align-items:center;">
+                                    <span style="color:#4CAF50; margin-right:5px;">✔</span> 
+                                    ${device.controller.type} (ID: ${device.controller.id})
+                                </span>
+                                <button class="btn btn-icon" onclick="removeNestedController(${index})" style="font-size:0.8em;">✕</button>
+                            </div>
+                        `;
+                    } else {
+                        // Empty Drop Zone State
+                        const needsList = device.validControllers ? device.validControllers.join(' or ') : 'Controller';
+                        deviceCellContent += `
+                            <div id="nested-zone-${index}" class="nested-drop-zone" 
+                                 ondrop="dropController(event, ${index})" 
+                                 ondragover="allowDropController(event)" 
+                                 ondragleave="leaveDropController(event)">
+                                Drag ${needsList} here
+                            </div>
+                        `;
+                    }
+                }
+
+                // ID Input: If has nested controller, specificy that the ID belongs to that controller
+                let idInput = `<input type="text" class="device-id" value="${device.controller ? device.controller.id : device.id}" onchange="updateDevice(${index}, '${device.controller ? 'controllerId' : 'id'}', this.value)" placeholder="1" style="text-align:center;">`;
+
+                // Validation State for Row
+                if (device.needsController && !device.controller) {
+                    row.style.background = 'rgba(255, 100, 100, 0.05)';
+                    row.style.borderLeft = '3px solid red';
+                }
+
                 row.innerHTML = `
-                    <td>${device.type}</td>
-                    <td><input type="text" class="device-name" value="${device.name}" onchange="updateDevice(${index}, 'name', this.value)" placeholder="motor"></td>
-                    <td><input type="text" class="device-id" value="${device.id}" onchange="updateDevice(${index}, 'id', this.value)" placeholder="1" style="text-align:center;"></td>
-                    <td><input type="text" class="device-bus" value="${device.bus}" onchange="updateDevice(${index}, 'bus', this.value)" placeholder="rio"></td>
-                    <td>${helpersHtml}</td>
-                    <td><button class="btn btn-icon" onclick="deleteDevice(${index})">🗑</button></td>
+                    <td style="vertical-align:top;">${deviceCellContent}</td>
+                    <td style="vertical-align:top;"><input type="text" class="device-name" value="${device.name}" onchange="updateDevice(${index}, 'name', this.value)" placeholder="motorName"></td>
+                    <td style="vertical-align:top;">${idInput}</td>
+                    <td style="vertical-align:top;"><input type="text" class="device-bus" value="${device.bus}" onchange="updateDevice(${index}, 'bus', this.value)" placeholder="rio"></td>
+                    <td style="vertical-align:top;">${helpersHtml}</td>
+                    <td style="vertical-align:top;"><button class="btn btn-icon" onclick="deleteDevice(${index})">🗑</button></td>
                 `;
                 table.appendChild(row);
             });
+        }
+
+        // Update function handler to handle nested controller IDs
+        function updateDevice(index, field, value) {
+            if (field === 'controllerId' && devices[index].controller) {
+                devices[index].controller.id = value;
+            } else {
+                devices[index][field] = value;
+            }
         }
 
         window.toggleHelper = (index, method, checked) => {
@@ -723,6 +1123,10 @@
                 e.preventDefault();
                 document.getElementById('generateBtn').click();
             }
+        });
+
+        document.getElementById('yamgBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'openYAMG' });
         });
 
         renderDeviceTypes();
