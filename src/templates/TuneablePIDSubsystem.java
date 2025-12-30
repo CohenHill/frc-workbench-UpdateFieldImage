@@ -220,26 +220,56 @@ public abstract class TuneablePIDSubsystem extends SubsystemBase {
         return m_controller;
     }
 
+    /**
+     * Creates a default Mechanism2d visualization for this subsystem and publishes
+     * it to SmartDashboard.
+     * This is an easy way to get visualization working in AdvantageScope.
+     * 
+     * @param name  The name to publish under (e.g. "Arm Mechanism")
+     * @param rootX X position of the root (0-3 meters range commonly)
+     * @param rootY Y position of the root
+     */
+    public void enableDefaultVisualizer(String name, double rootX, double rootY) {
+        Mechanism2d mech = new Mechanism2d(3, 3);
+        MechanismRoot2d root = mech.getRoot("Root", rootX, rootY);
+        // Default length 1, angle 90 (up)
+        m_visualizer = root.append(new MechanismLigament2d(name, 1, 90));
+        SmartDashboard.putData(name, mech);
+    }
+
     // --- Command Factories ---
 
+    /**
+     * Returns a command that enables the PID controller.
+     */
     public Command enableCommand() {
         return new InstantCommand(this::enable, this).withName("Enable");
     }
 
+    /**
+     * Returns a command that disables the PID controller.
+     */
     public Command disableCommand() {
         return new InstantCommand(this::disable, this).withName("Disable");
     }
 
+    /**
+     * Returns a command that sets the setpoint of the PID controller.
+     */
     public Command setSetpointCommand(double setpoint) {
         return new InstantCommand(() -> setSetpoint(setpoint), this).withName("SetSetpoint");
     }
 
+    /**
+     * Returns a command that holds the current position of the PID controller.
+     * takes the current measurement as the setpoint.
+     */
     public Command holdCommand() {
         return new InstantCommand(this::hold, this).withName("HoldPosition");
     }
 
     /**
-     * returns a command that runs the PID loop (which runs in periodic anyway,
+     * Returns a command that runs the PID loop (which runs in periodic anyway,
      * but this ensures requirements are required).
      * Actually since logic is in periodic, we just need a RunCommand that keeps the
      * subsystem required.

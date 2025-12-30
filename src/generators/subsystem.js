@@ -54,6 +54,7 @@ function generateSubsystemCode(data) {
     let pVal = kP, iVal = kI, dVal = kD, sVal = kS, vVal = kV, aVal = kA, gVal = kG, velVal = maxVel, accVal = maxAcc;
 
     if (saveConstants) {
+      imports.add('frc.robot.RobotMap');
       const constClass = `${constantsClassName}.${className}Constants`;
       pVal = `${constClass}.kP`;
       iVal = `${constClass}.kI`;

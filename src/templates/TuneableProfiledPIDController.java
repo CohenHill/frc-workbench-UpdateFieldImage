@@ -19,6 +19,7 @@ public class TuneableProfiledPIDController extends ProfiledPIDController {
     private double m_kG;
     private FeedforwardType m_type = FeedforwardType.STATIC;
     private double m_lastVelocity = 0;
+    private double m_latestOutput = 0;
 
     public enum FeedforwardType {
         STATIC, ELEVATOR, ARM
@@ -67,6 +68,7 @@ public class TuneableProfiledPIDController extends ProfiledPIDController {
         builder.addDoubleProperty("Goal", () -> getGoal().position, (val) -> setGoal(val));
         builder.addDoubleProperty("Setpoint", () -> getSetpoint().position, null);
         builder.addDoubleProperty("Error", this::getPositionError, null);
+        builder.addDoubleProperty("output", () -> m_latestOutput, null);
     }
 
     public void setConstraints(TrapezoidProfile.Constraints constraints) {
@@ -127,7 +129,9 @@ public class TuneableProfiledPIDController extends ProfiledPIDController {
         }
 
         m_lastVelocity = setpoint.velocity;
-        return MathUtil.clamp(output + ff, m_minOutput, m_maxOutput);
+        double result = MathUtil.clamp(output + ff, m_minOutput, m_maxOutput);
+        m_latestOutput = result;
+        return result;
     }
 
     public void setkG(double kG) {
