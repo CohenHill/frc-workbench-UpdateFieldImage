@@ -191,7 +191,8 @@ function activate(context) {
 			// Handle Messages
 			panel.webview.onDidReceiveMessage(async message => {
 				if (message.command === 'save') {
-					const javaCode = generateConstantsCode(message.data);
+					const javaCode = await generateConstantsCode(message.data);
+					
 					const dir = path.dirname(constantsPath);
 					if (!(await exists(dir))) await mkdir(dir);
 					await writeFile(constantsPath, javaCode);
@@ -681,7 +682,9 @@ function parseConstants(content) {
 	return { modules };
 }
 
-function generateConstantsCode(data) {
+async function generateConstantsCode(data) {
+	
+	
 	const modulesStr = data.modules.map(m => {
 		const consts = m.constants.map(c => `        public static final ${c.type} ${c.name} = ${c.value};`).join('\n');
 		return `    public static final class ${m.name} {\n${consts}\n    }`;
@@ -691,11 +694,30 @@ function generateConstantsCode(data) {
 	const fileName = config.get('constantsFileName', 'RobotMap.java');
 	const className = fileName.replace('.java', '');
 
+	// Extract the imports from the file content
+	const rootPath = vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders[0].uri.fsPath : '';
+	const constantsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', getConstantsFileName());
+	const fileContent = await readFile(constantsPath);
+	const classDeclaration = 'public final class ' + fileName.replace('.java', '');
 	const comment = fileName === 'RobotMap.java'
 		? '/**\n * The RobotMap is a mapping from the ports sensors and actuators are wired into\n * to a variable name. This provides flexibility changing wiring.\n */'
 		: '/**\n * The Constants class provides a convenient place for teams to hold robot-wide\n * numerical or boolean constants.\n */';
 
-	return `package frc.robot;
+	const commentIndex = fileContent.indexOf(comment);
+	const classIndex = fileContent.indexOf(classDeclaration);
+	
+	
+	// Imports includes package and any imports before the class or comment (if user deleted the comment)
+	let imports = '';
+	if (commentIndex !== -1) {
+		imports = fileContent.substring(0, commentIndex).trim() // Get everything before the comment
+	}
+	else if (classIndex !== -1) {
+		imports = fileContent.substring(0, classIndex).trim() // Get everything before the class declaration
+	}
+
+	
+	return `${imports}
 
 ${comment}
 public final class ${className} {
