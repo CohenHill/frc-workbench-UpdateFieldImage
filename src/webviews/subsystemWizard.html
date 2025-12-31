@@ -7,18 +7,20 @@
     <title>Create Subsystem</title>
     <style>
         :root {
-            --background: var(--vscode-editor-background);
+            --background: var(--vscode-sideBar-background);
             --foreground: var(--vscode-editor-foreground);
             --sidebar-bg: var(--vscode-sideBar-background);
             --sidebar-fg: var(--vscode-sideBar-foreground);
             --list-hover: var(--vscode-list-hoverBackground);
             --input-bg: var(--vscode-input-background);
             --input-fg: var(--vscode-input-foreground);
-            --input-border: var(--vscode-input-border);
+            --input-border: var(--vscode-dropdown-border);
             --button-bg: var(--vscode-button-background);
             --button-fg: var(--vscode-button-foreground);
             --button-hover: var(--vscode-button-hoverBackground);
             --border-color: var(--vscode-panel-border);
+            --header-bg: var(--vscode-editorGroupHeader-tabsBackground);
+            --focus-border: var(--vscode-focusBorder);
         }
 
         body {
@@ -32,13 +34,53 @@
             overflow: hidden;
         }
 
-        .sidebar {
-            width: 250px;
+        /* Modern Input Styling */
+        input,
+        select {
+            background-color: var(--input-bg);
+            color: var(--input-fg);
+            border: 1px solid var(--input-border);
+            padding: 8px 10px;
+            border-radius: 4px;
+            font-family: inherit;
+            transition: border-color 0.15s ease-in-out;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--focus-border);
+            box-shadow: 0 0 0 1px var(--focus-border);
+        }
+
+        /* Modern Button Styling */
+        .btn {
+            background-color: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background-color: var(--button-hover);
+        }
+
+        .btn-secondary {
             background-color: var(--sidebar-bg);
-            color: var(--sidebar-fg);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
+            border: 1px solid var(--input-border);
+            color: var(--foreground);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--list-hover);
         }
 
         .sidebar-header {
@@ -168,6 +210,14 @@
             font-size: 0.9em;
         }
 
+        .section-label {
+            display: block;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            /* Slightly larger for main section */
+            color: var(--foreground);
+        }
+
         input,
         select {
             background-color: var(--input-bg);
@@ -185,15 +235,36 @@
         }
 
         .drop-zone {
-            min-height: 100px;
-            border: 2px dashed transparent;
-            border-radius: 4px;
-            transition: all 0.2s;
+            min-height: 150px;
+            border: 2px dashed var(--vscode-dropdown-border);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            background: rgba(128, 128, 128, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
         }
 
         .drop-zone.drag-over {
-            border-color: var(--vscode-focusBorder);
-            background: rgba(128, 128, 128, 0.1);
+            border-color: var(--focus-border);
+            background: rgba(128, 128, 128, 0.15);
+            transform: scale(1.005);
+        }
+
+        .drop-zone table {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Empty state styling */
+        .drop-zone:empty::before {
+            content: "Drag & Drop Devices Here";
+            color: var(--foreground);
+            opacity: 0.5;
+            font-size: 1.1em;
+            pointer-events: none;
         }
 
         table {
@@ -307,6 +378,144 @@
             width: 20px;
             height: 20px;
         }
+
+        /* Horizontal Carousel Styling */
+        .carousel-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 25px;
+            padding: 0 50px;
+            /* Increased padding for arrows */
+            box-sizing: border-box;
+        }
+
+        .carousel-track-container {
+            overflow: hidden;
+            width: 100%;
+            height: 350px;
+            /* Fixed unit */
+            border-radius: 12px;
+            padding: 5px 0;
+        }
+
+        .carousel-track {
+            display: flex;
+            gap: 25px;
+            /* Increased gap */
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scrollbar-width: none;
+            padding: 10px 5px;
+            /* Add padding for hover effects/shadows */
+            align-items: center;
+            /* Center cards vertically */
+            height: 100%;
+        }
+
+        .carousel-track::-webkit-scrollbar {
+            display: none;
+        }
+
+        .card {
+            flex: 0 0 300px;
+            /* Increased size */
+            height: 300px;
+            /* Increased size */
+            border-radius: 16px;
+            /* Slightly rounder */
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+            border: 2px solid transparent;
+            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            background-color: var(--input-bg);
+            /* background-image set inline per card */
+            background-size: cover;
+            background-position: center;
+        }
+
+        .card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            z-index: 2;
+        }
+
+        .card.active {
+            border-color: var(--focus-border);
+            box-shadow: 0 0 0 2px var(--focus-border), 0 8px 25px rgba(0, 0, 0, 0.5);
+            transform: scale(1.02);
+            z-index: 2;
+        }
+
+        .card-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 40%, transparent 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 20px 15px;
+            box-sizing: border-box;
+            transition: background 0.3s;
+        }
+
+        .card:hover .card-overlay {
+            background: linear-gradient(to top, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.7) 50%, transparent 100%);
+        }
+
+        .card-title {
+            font-weight: 700;
+            font-size: 1.25em;
+            color: #ffffff;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .card-desc {
+            font-size: 0.85em;
+            color: #e0e0e0;
+            line-height: 1.35;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Nav Buttons */
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+            opacity: 0.9;
+        }
+
+        .carousel-btn:hover {
+            background: var(--button-hover);
+            transform: translateY(-50%) scale(1.1);
+            opacity: 1;
+        }
+
+        .carousel-btn.prev {
+            left: 10px;
+        }
+
+        .carousel-btn.next {
+            right: 10px;
+        }
     </style>
 </head>
 
@@ -324,23 +533,67 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <h1>Create Subsystem</h1>
             <div>
-                <button class="btn" id="refreshBtn" title="Refresh Vendor Libraries"
-                    style="margin-right:10px; background-color: var(--sidebar-bg); border: 1px solid var(--border-color);">↻</button>
-                <button class="btn" id="yamgBtn"
-                    style="margin-right:10px; background-color: var(--sidebar-bg); border: 1px solid var(--border-color);">Using
-                    Yet Another...</button>
-                <button class="btn" id="generateBtn">Generate Code</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-secondary" id="refreshBtn" title="Refresh Vendor Libraries">↻
+                        Refresh</button>
+                    <button class="btn btn-secondary" id="generatorsBtn">Generators</button>
+                    <button class="btn" id="generateBtn">Generate Code</button>
+                </div>
             </div>
         </div>
 
         <div class="form-section">
-            <div class="form-row">
-                <label>Subsystem Type</label>
-                <select id="subsystemType">
-                    <option value="generic">Generic Subsystem</option>
-                    <option value="pid">PID Subsystem</option>
-                    <option value="profiled_pid">Profiled PID Subsystem</option>
-                </select>
+            <div class="form-group">
+                <label class="section-label">Subsystem Type</label>
+                <!-- Hidden Input to store the selected value for JS compatibility -->
+                <input type="hidden" id="subsystemType" value="generic">
+
+                <div class="carousel-wrapper">
+                    <button class="carousel-btn prev" type="button" onclick="scrollCarousel(-1)">&#10094;</button>
+                    <div class="carousel-track-container">
+                        <div class="carousel-track" id="cardTrack">
+                            <!-- Standard Types -->
+                            <div class="card active" onclick="selectCard(this, 'generic')"
+                                style="background-image: url('media/generic.png');">
+                                <div class="card-overlay">
+                                    <div class="card-title">Generic</div>
+                                    <div class="card-desc">Standard WPILib subsystem. Best for basic mechanisms.</div>
+                                </div>
+                            </div>
+                            <div class="card" onclick="selectCard(this, 'pid')"
+                                style="background-image: url('media/pid.png');">
+                                <div class="card-overlay">
+                                    <div class="card-title">PID</div>
+                                    <div class="card-desc">WPILib PIDSubsystem. Precise position/velocity control.</div>
+                                </div>
+                            </div>
+                            <div class="card" onclick="selectCard(this, 'profiled_pid')"
+                                style="background-image: url('media/profiled.png');">
+                                <div class="card-overlay">
+                                    <div class="card-title">Profiled PID</div>
+                                    <div class="card-desc">Trapezoid profile. Smooth motion for arms/elevators.</div>
+                                </div>
+                            </div>
+                            <!-- YASS Types -->
+                            <div class="card" onclick="selectCard(this, 'yams')"
+                                style="background-image: url('media/yams.png');">
+                                <div class="card-overlay">
+                                    <div class="card-title">YAMS</div>
+                                    <div class="card-desc">Yet Another Mechanism System. Simplified setup.</div>
+                                </div>
+                            </div>
+                            <div class="card" onclick="selectCard(this, 'yamg')"
+                                style="background-image: url('media/yamg.png');">
+                                <div class="card-overlay">
+                                    <div class="card-title">YAMG</div>
+                                    <div class="card-desc">Yet Another Mechanism Generator. Extensive configuration.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" type="button" onclick="scrollCarousel(1)">&#10095;</button>
+                </div>
             </div>
 
             <div class="form-row">
@@ -393,7 +646,7 @@
         </div>
 
         <!-- PID Configuration (only shown for PID subsystems) -->
-        <div id="pidConfig" style="display: none;">
+        <div id="pid-section" style="display: none;">
             <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">PID Configuration</h2>
 
             <div class="form-row" style="margin-bottom: 15px;">
@@ -609,7 +862,7 @@
                 import: 'com.ctre.phoenix6.hardware.TalonFX',
                 requiredVendor: 'Phoenix6',
                 vendorUrl: 'https://v6.docs.ctr-electronics.com/en/stable/docs/installation/index.html',
-                image: 'media/field.png',
+                image: '../../images/image.png',
                 needsController: true,
                 validControllers: ['TalonFX']
             },
@@ -620,7 +873,7 @@
                 import: 'com.ctre.phoenix6.hardware.TalonFX',
                 requiredVendor: 'Phoenix6',
                 vendorUrl: 'https://v6.docs.ctr-electronics.com/en/stable/docs/installation/index.html',
-                image: 'media/talonfx.png',
+                image: '../../images/image.png',
                 needsController: true,
                 validControllers: ['TalonFX']
             },
@@ -631,7 +884,7 @@
                 import: 'com.revrobotics.spark.SparkFlex',
                 requiredVendor: 'REVLib',
                 vendorUrl: 'https://docs.revrobotics.com/brushless/spark-flex/software-resources',
-                image: 'media/sparkflex.png',
+                image: '../../images/image.png',
                 needsController: true,
                 validControllers: ['SparkFlex']
             },
@@ -642,7 +895,7 @@
                 import: 'com.ctre.phoenix6.hardware.TalonFXS',
                 requiredVendor: 'Phoenix6',
                 vendorUrl: 'https://v6.docs.ctr-electronics.com/',
-                image: 'media/talonfxs.png',
+                image: '../../images/image.png',
                 needsController: true,
                 validControllers: ['TalonFXS']
             },
@@ -653,7 +906,7 @@
                 import: 'com.revrobotics.SparkMax',
                 requiredVendor: 'REVLib',
                 vendorUrl: 'https://docs.revrobotics.com/',
-                image: 'media/sparkmax.png',
+                image: '../../images/image.png',
                 needsController: true,
                 validControllers: ['SparkMax']
             },
@@ -664,7 +917,7 @@
                 import: 'com.revrobotics.SparkMax',
                 requiredVendor: 'REVLib',
                 vendorUrl: 'https://docs.revrobotics.com/',
-                image: 'media/sparkmax.png',
+                image: '../../images/image.png',
                 needsController: true,
                 validControllers: ['SparkMax']
             },
@@ -675,7 +928,7 @@
                 import: 'com.revrobotics.SparkMax',
                 requiredVendor: 'REVLib',
                 vendorUrl: 'https://docs.revrobotics.com/',
-                image: 'media/sparkmax.png',
+                image: '../../images/image.png',
                 needsController: true,
                 validControllers: ['SparkMax', 'SparkFlex']
             },
@@ -688,7 +941,7 @@
                 import: 'com.ctre.phoenix6.hardware.TalonFX',
                 requiredVendor: 'Phoenix6',
                 vendorUrl: 'https://v6.docs.ctr-electronics.com/',
-                image: 'media/talonfx.png'
+                image: '../../images/image.png'
             },
             {
                 name: 'TalonFXS',
@@ -697,7 +950,7 @@
                 import: 'com.ctre.phoenix6.hardware.TalonFXS',
                 requiredVendor: 'Phoenix6',
                 vendorUrl: 'https://v6.docs.ctr-electronics.com/',
-                image: 'media/talonfxs.png'
+                image: '../../images/image.png'
             },
             {
                 name: 'SparkMax',
@@ -706,7 +959,7 @@
                 import: 'com.revrobotics.spark.SparkMax',
                 requiredVendor: 'REVLib',
                 vendorUrl: 'https://docs.revrobotics.com/brushless/spark-max/software-resources',
-                image: 'media/sparkmax.png'
+                image: '../../images/image.png'
             },
             {
                 name: 'SparkFlex',
@@ -715,7 +968,7 @@
                 import: 'com.revrobotics.spark.SparkFlex',
                 requiredVendor: 'REVLib',
                 vendorUrl: 'https://docs.revrobotics.com/brushless/spark-flex/software-resources',
-                image: 'media/sparkflex.png'
+                image: '../../images/image.png'
             },
             {
                 name: 'TalonSRX',
@@ -724,7 +977,7 @@
                 import: 'com.ctre.phoenix.motorcontrol.can.TalonSRX',
                 requiredVendor: 'Phoenix',
                 vendorUrl: 'https://maven.ctr-electronics.com/release/com/ctre/phoenix/Phoenix5-frc2024-latest.json',
-                image: 'media/talonsrx.png'
+                image: '../../images/image.png'
             },
             {
                 name: 'VictorSPX',
@@ -733,41 +986,41 @@
                 import: 'com.ctre.phoenix.motorcontrol.can.VictorSPX',
                 requiredVendor: 'Phoenix',
                 vendorUrl: 'https://maven.ctr-electronics.com/release/com/ctre/phoenix/Phoenix5-frc2024-latest.json',
-                image: 'media/victorspx.png'
+                image: '../../images/image.png'
             },
 
             // --- Sensors ---
-            { name: 'Pigeon 2.0', category: 'Sensors', description: 'CTRE IMU (CAN)', import: 'com.ctre.phoenix6.hardware.Pigeon2', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: 'media/pigeon2.png' },
-            { name: 'CANcoder', category: 'Sensors', description: 'CTRE Absolute Encoder (CAN)', import: 'com.ctre.phoenix6.hardware.CANcoder', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: 'media/cancoder.png' },
-            { name: 'CANrange', category: 'Sensors', description: 'CTRE Distance Sensor (CAN)', import: 'com.ctre.phoenix6.hardware.CANrange', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: 'media/new_device.png' },
-            { name: 'SRX Mag Encoder', category: 'Sensors', description: 'CTRE Magnetic Encoder', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: 'media/encoder.png' },
-            { name: 'NavX2 MXP', category: 'Sensors', description: 'KauaiLabs Navigation (MXP Port)', import: 'com.kauailabs.navx.frc.AHRS', requiredVendor: 'NavX', vendorUrl: 'https://docs.studica.com/en/latest/docs/VMX-FRC/software/roborio-setup/index.html', image: 'media/navx.png' },
-            { name: 'NavX2-Micro', category: 'Sensors', description: 'KauaiLabs Navigation (USB)', import: 'com.kauailabs.navx.frc.AHRS', requiredVendor: 'NavX', vendorUrl: 'https://docs.studica.com/en/latest/docs/VMX-FRC/software/roborio-setup/index.html', image: 'media/navx.png' },
-            { name: 'Limelight 4', category: 'Sensors', description: 'Vision Camera (Ethernet)', import: 'edu.wpi.first.networktables.NetworkTable', image: 'media/limelight.png' },
-            { name: 'Limelight 3/3A', category: 'Sensors', description: 'Vision Camera (Ethernet)', import: 'edu.wpi.first.networktables.NetworkTable', image: 'media/limelight.png' },
-            { name: 'Color Sensor V3', category: 'Sensors', description: 'REV Color/Proximity (I2C)', import: 'com.revrobotics.ColorSensorV3', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: 'media/sensor.png' },
-            { name: 'Color Sensor V2', category: 'Sensors', description: 'REV Color/Proximity (I2C)', import: 'com.revrobotics.ColorSensorV3', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: 'media/sensor.png' },
-            { name: '2m Distance Sensor', category: 'Sensors', description: 'REV Time-of-Flight (I2C)', import: 'com.revrobotics.Rev2mDistanceSensor', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: 'media/sensor.png' },
-            { name: 'Through Bore Encoder', category: 'Sensors', description: 'REV Absolute Encoder (DIO/PWM)', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: 'media/encoder.png' },
-            { name: 'MAXSpline Encoder', category: 'Sensors', description: 'REV Absolute Encoder (DIO/PWM)', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: 'media/encoder.png' },
-            { name: 'Laser Distance', category: 'Sensors', description: 'goBILDA/Generic (Analog)', import: 'edu.wpi.first.wpilibj.AnalogInput', image: 'media/sensor.png' },
-            { name: 'LIDAR Lite v3', category: 'Sensors', description: 'Garmin LIDAR (I2C/PWM)', import: 'edu.wpi.first.wpilibj.I2C', image: 'media/sensor.png' },
-            { name: '9-Axis IMU', category: 'Sensors', description: 'Generic IMU (I2C)', import: 'edu.wpi.first.wpilibj.I2C', image: 'media/sensor.png' },
-            { name: 'Absolute IMU Fusion', category: 'Sensors', description: 'BNO055/Generic (I2C)', import: 'edu.wpi.first.wpilibj.I2C', image: 'media/sensor.png' },
+            { name: 'Pigeon 2.0', category: 'Sensors', description: 'CTRE IMU (CAN)', import: 'com.ctre.phoenix6.hardware.Pigeon2', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: '../../images/image.png' },
+            { name: 'CANcoder', category: 'Sensors', description: 'CTRE Absolute Encoder (CAN)', import: 'com.ctre.phoenix6.hardware.CANcoder', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: '../../images/image.png' },
+            { name: 'CANrange', category: 'Sensors', description: 'CTRE Distance Sensor (CAN)', import: 'com.ctre.phoenix6.hardware.CANrange', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: '../../images/image.png' },
+            { name: 'SRX Mag Encoder', category: 'Sensors', description: 'CTRE Magnetic Encoder', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: '../../images/image.png' },
+            { name: 'NavX2 MXP', category: 'Sensors', description: 'KauaiLabs Navigation (MXP Port)', import: 'com.kauailabs.navx.frc.AHRS', requiredVendor: 'NavX', vendorUrl: 'https://docs.studica.com/en/latest/docs/VMX-FRC/software/roborio-setup/index.html', image: '../../images/image.png' },
+            { name: 'NavX2-Micro', category: 'Sensors', description: 'KauaiLabs Navigation (USB)', import: 'com.kauailabs.navx.frc.AHRS', requiredVendor: 'NavX', vendorUrl: 'https://docs.studica.com/en/latest/docs/VMX-FRC/software/roborio-setup/index.html', image: '../../images/image.png' },
+            { name: 'Limelight 4', category: 'Sensors', description: 'Vision Camera (Ethernet)', import: 'edu.wpi.first.networktables.NetworkTable', image: '../../images/image.png' },
+            { name: 'Limelight 3/3A', category: 'Sensors', description: 'Vision Camera (Ethernet)', import: 'edu.wpi.first.networktables.NetworkTable', image: '../../images/image.png' },
+            { name: 'Color Sensor V3', category: 'Sensors', description: 'REV Color/Proximity (I2C)', import: 'com.revrobotics.ColorSensorV3', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: '../../images/image.png' },
+            { name: 'Color Sensor V2', category: 'Sensors', description: 'REV Color/Proximity (I2C)', import: 'com.revrobotics.ColorSensorV3', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: '../../images/image.png' },
+            { name: '2m Distance Sensor', category: 'Sensors', description: 'REV Time-of-Flight (I2C)', import: 'com.revrobotics.Rev2mDistanceSensor', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: '../../images/image.png' },
+            { name: 'Through Bore Encoder', category: 'Sensors', description: 'REV Absolute Encoder (DIO/PWM)', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: '../../images/image.png' },
+            { name: 'MAXSpline Encoder', category: 'Sensors', description: 'REV Absolute Encoder (DIO/PWM)', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: '../../images/image.png' },
+            { name: 'Laser Distance', category: 'Sensors', description: 'goBILDA/Generic (Analog)', import: 'edu.wpi.first.wpilibj.AnalogInput', image: '../../images/image.png' },
+            { name: 'LIDAR Lite v3', category: 'Sensors', description: 'Garmin LIDAR (I2C/PWM)', import: 'edu.wpi.first.wpilibj.I2C', image: '../../images/image.png' },
+            { name: '9-Axis IMU', category: 'Sensors', description: 'Generic IMU (I2C)', import: 'edu.wpi.first.wpilibj.I2C', image: '../../images/image.png' },
+            { name: 'Absolute IMU Fusion', category: 'Sensors', description: 'BNO055/Generic (I2C)', import: 'edu.wpi.first.wpilibj.I2C', image: '../../images/image.png' },
 
             // --- Pneumatics & Actuators ---
-            { name: 'DoubleSolenoid', category: 'Pneumatics', description: 'Double Acting Cylinder Control', import: 'edu.wpi.first.wpilibj.DoubleSolenoid', image: 'media/solenoid.png' },
-            { name: 'Solenoid', category: 'Pneumatics', description: 'Single Acting Cylinder Control', import: 'edu.wpi.first.wpilibj.Solenoid', image: 'media/solenoid.png' },
-            { name: 'Linear Actuator (12V)', category: 'Actuators', description: 'Heavy Duty Actuator (Req. Motor Controller)', import: 'edu.wpi.first.wpilibj.motorcontrol.Spark', image: 'media/motor.png' },
-            { name: 'Servo (2000 Series)', category: 'Actuators', description: 'goBILDA Dual Mode (PWM)', import: 'edu.wpi.first.wpilibj.Servo', image: 'media/servo.png' },
+            { name: 'DoubleSolenoid', category: 'Pneumatics', description: 'Double Acting Cylinder Control', import: 'edu.wpi.first.wpilibj.DoubleSolenoid', image: '../../images/image.png' },
+            { name: 'Solenoid', category: 'Pneumatics', description: 'Single Acting Cylinder Control', import: 'edu.wpi.first.wpilibj.Solenoid', image: '../../images/image.png' },
+            { name: 'Linear Actuator (12V)', category: 'Actuators', description: 'Heavy Duty Actuator (Req. Motor Controller)', import: 'edu.wpi.first.wpilibj.motorcontrol.Spark', image: '../../images/image.png' },
+            { name: 'Servo (2000 Series)', category: 'Actuators', description: 'goBILDA Dual Mode (PWM)', import: 'edu.wpi.first.wpilibj.Servo', image: '../../images/image.png' },
 
             // --- LEDs & Misc ---
-            { name: 'CANdle', category: 'LEDs', description: 'CTRE LED Controller (CAN)', import: 'com.ctre.phoenix.led.CANdle', requiredVendor: 'Phoenix', vendorUrl: 'https://store.ctr-electronics.com/candle/', image: 'media/candle.png' },
-            { name: 'CANdi', category: 'Misc', description: 'CTRE Digital Input Module (CAN)', import: 'com.ctre.phoenix6.hardware.CANdi', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: 'media/new_device.png' },
-            { name: 'Prism RGB Driver', category: 'LEDs', description: 'goBILDA LED Driver (PWM)', import: 'edu.wpi.first.wpilibj.PWM', image: 'media/led.png' },
-            { name: 'DigitalInput', category: 'Sensors', description: 'Limit Switch/Digital (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: 'media/digitalinput.png' },
-            { name: 'Touch Sensor', category: 'Sensors', description: 'Generic (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: 'media/digitalinput.png' },
-            { name: 'Magnetic Limit', category: 'Sensors', description: 'Generic (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: 'media/digitalinput.png' }
+            { name: 'CANdle', category: 'LEDs', description: 'CTRE LED Controller (CAN)', import: 'com.ctre.phoenix.led.CANdle', requiredVendor: 'Phoenix', vendorUrl: 'https://store.ctr-electronics.com/candle/', image: '../../images/image.png' },
+            { name: 'CANdi', category: 'Misc', description: 'CTRE Digital Input Module (CAN)', import: 'com.ctre.phoenix6.hardware.CANdi', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: '../../images/image.png' },
+            { name: 'Prism RGB Driver', category: 'LEDs', description: 'goBILDA LED Driver (PWM)', import: 'edu.wpi.first.wpilibj.PWM', image: '../../images/image.png' },
+            { name: 'DigitalInput', category: 'Sensors', description: 'Limit Switch/Digital (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: '../../images/image.png' },
+            { name: 'Touch Sensor', category: 'Sensors', description: 'Generic (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: '../../images/image.png' },
+            { name: 'Magnetic Limit', category: 'Sensors', description: 'Generic (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: '../../images/image.png' }
         ];
 
         const devices = [];
@@ -831,8 +1084,7 @@
                     // Image
                     const img = document.createElement('img');
                     // Use a generic placeholder if image fails or is missing, but we set them in data.
-                    // Since we don't have real images yet, use a data URI placeholder or just an icon.
-                    // For now, I'll use a simple colored square data URI if image is not found, handled by onerror
+                    // Since we don't have real images yet, use a simple colored square data URI if image is not found, handled by onerror
                     img.src = dt.image || '';
                     img.onerror = () => { img.style.display = 'none'; }; // Hide if broken
                     item.appendChild(img);
@@ -920,7 +1172,7 @@
 
             popup.style.display = 'block';
             popup.style.left = Math.min(event.pageX + 10, window.innerWidth - 320) + 'px';
-            popup.style.top = (event.pageY + 10) + 'px';
+            popup.style.top = (e.pageY + 10) + 'px';
         }
 
         window.closeInfoPopup = () => {
@@ -1099,7 +1351,7 @@
             });
         }
 
-        // Update function handler to handle nested controller IDs
+        // Update function handler
         function updateDevice(index, field, value) {
             if (field === 'controllerId' && devices[index].controller) {
                 devices[index].controller.id = value;
@@ -1117,7 +1369,50 @@
             }
         };
 
-        // State Management
+        window.deleteDevice = (index) => {
+            devices.splice(index, 1);
+            renderDevices();
+        };
+
+        // --- Card Carousel & PID Logic ---
+        window.selectCard = (cardElement, value) => {
+            // Update hidden input
+            const input = document.getElementById('subsystemType');
+            input.value = value;
+
+            // Visual Update
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(c => c.classList.remove('active'));
+            cardElement.classList.add('active');
+
+            togglePIDFields();
+        };
+
+        window.scrollCarousel = (direction) => {
+            const track = document.getElementById('cardTrack');
+            // card width (300) + gap (25) = 325
+            const scrollAmount = 325;
+            track.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+        };
+
+        function togglePIDFields() {
+            const type = document.getElementById('subsystemType').value;
+            const pidSection = document.getElementById('pid-section');
+            if (type === 'pid' || type === 'profiled_pid') {
+                pidSection.style.display = 'block';
+            } else {
+                pidSection.style.display = 'none';
+            }
+
+            // Show/Hide Profiled fields
+            const profiledFields = document.querySelectorAll('.profiled-only');
+            profiledFields.forEach(el => el.style.display = (type === 'profiled_pid') ? 'block' : 'none');
+        }
+
+        // Initialize toggle
+        togglePIDFields();
+
+        // --- State Management ---
         window.addState = () => {
             const input = document.getElementById('newStateInput');
             const val = input.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
@@ -1145,30 +1440,6 @@
                 </div>
             `).join('');
         }
-
-        window.updateDevice = (index, field, value) => {
-            devices[index][field] = value;
-        };
-
-        window.deleteDevice = (index) => {
-            devices.splice(index, 1);
-            renderDevices();
-        };
-
-        // Show/hide PID config based on subsystem type
-        document.getElementById('subsystemType').addEventListener('change', (e) => {
-            const type = e.target.value;
-            const pidConfig = document.getElementById('pidConfig');
-
-            if (type === 'generic') {
-                pidConfig.style.display = 'none';
-            } else {
-                pidConfig.style.display = 'block';
-                // Show/Hide Profiled fields
-                const profiledFields = document.querySelectorAll('.profiled-only');
-                profiledFields.forEach(el => el.style.display = (type === 'profiled_pid') ? 'block' : 'none');
-            }
-        });
 
         // Toggle States Section
         document.getElementById('enableStates').addEventListener('change', (e) => {
@@ -1259,8 +1530,8 @@
             }
         });
 
-        document.getElementById('yamgBtn').addEventListener('click', () => {
-            vscode.postMessage({ command: 'openYAMG' });
+        document.getElementById('generatorsBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'openGenerators' });
         });
 
         document.getElementById('refreshBtn').addEventListener('click', () => {

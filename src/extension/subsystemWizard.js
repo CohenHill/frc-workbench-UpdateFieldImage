@@ -21,18 +21,27 @@ function activate(context) {
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
-                retainContextWhenHidden: true
+                retainContextWhenHidden: true,
+                localResourceRoots: [vscode.Uri.file(context.extensionPath)]
             }
         );
 
         // View Loader Helper
         const loadView = async (viewName) => {
             const fileName = viewName === 'hub' ? 'yasHub.html' : 'subsystemWizard.html';
-            const htmlPath = path.join(context.extensionPath, 'src', 'webviews', fileName);
-            panel.webview.html = await readFile(htmlPath);
+            const htmlDir = path.join(context.extensionPath, 'src', 'webviews');
+            const htmlPath = path.join(htmlDir, fileName);
+
+            let htmlContent = await readFile(htmlPath);
+            const baseUri = panel.webview.asWebviewUri(vscode.Uri.file(htmlDir));
+
+            // Inject base tag to resolve relative paths (like media/)
+            htmlContent = htmlContent.replace('<head>', `<head>\n<base href="${baseUri}/">`);
+
+            panel.webview.html = htmlContent;
         };
 
-        // Initial Load
+        // Initial Load - Load Wizard Directly
         await loadView('wizard');
 
         // Check for installed vendordeps
@@ -57,7 +66,7 @@ function activate(context) {
                             if (lowerFile.includes('revlib')) installedVendors.push('REVLib');
                             if (lowerFile.includes('navx') || lowerFile.includes('studica')) installedVendors.push('NavX');
                             if (lowerFile.includes('redux')) installedVendors.push('ReduxLib');
-                            // Add more heuristics as needed
+                            if (lowerFile.includes('yagsl')) installedVendors.push('YAGSL');
                         }
                     }
                 } catch (e) {
@@ -79,35 +88,38 @@ function activate(context) {
                         return;
 
                     case 'openYAMG':
-                        // Check for YAMS library
-                        const workspaceFolders = vscode.workspace.workspaceFolders;
-                        if (workspaceFolders) {
-                            const rootPath = workspaceFolders[0].uri.fsPath;
-                            const vendorPath = path.join(rootPath, 'vendordeps');
-                            let hasYAMS = false;
-                            if (await exists(vendorPath)) {
-                                try {
-                                    const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(vendorPath));
-                                    hasYAMS = files.some(([name]) => name.toLowerCase().includes('yams') && name.endsWith('.json'));
-                                } catch (e) { console.error(e); }
-                            }
-
-                            if (!hasYAMS) {
-                                const selection = await vscode.window.showWarningMessage(
-                                    'YAMS library not found! You need it to use YAMG generated code.',
-                                    'Download YAMS',
-                                    'Ignore & Continue'
-                                );
-                                if (selection === 'Download YAMS') {
-                                    vscode.env.openExternal(vscode.Uri.parse('https://yagsl.gitbook.io/yams/'));
-                                    return;
-                                } else if (selection !== 'Ignore & Continue') {
-                                    return;
-                                }
-                            }
-                        }
-                        // Switch to Hub
-                        await loadView('hub');
+                    // Deprecated button, but keep logic in case needed or reused
+                    case 'openGenerators':
+                        // Placeholder blank page as requested
+                        panel.webview.html = `
+                            <!DOCTYPE html>
+                            <html lang="en">
+                            <head>
+                                <meta charset="UTF-8">
+                                <style>
+                                    body { 
+                                        background-color: var(--vscode-editor-background); 
+                                        color: var(--vscode-editor-foreground); 
+                                        font-family: var(--vscode-font-family);
+                                        display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh;
+                                    }
+                                    button {
+                                        margin-top: 20px;
+                                        padding: 10px 20px;
+                                        background: var(--vscode-button-background);
+                                        color: var(--vscode-button-foreground);
+                                        border: none;
+                                        cursor: pointer;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <h1>Select a Generator</h1>
+                                <p>Coming Soon...</p>
+                                <button onclick="const vscode = acquireVsCodeApi(); vscode.postMessage({command: 'backToWizard'})">Back to Wizard</button>
+                            </body>
+                            </html>
+                        `;
                         return;
 
                     case 'launchYamg':
@@ -153,9 +165,7 @@ function activate(context) {
                                 vscode.window.showErrorMessage('YAMG generator file not found!');
                             }
                         } else if (view === 'yams') {
-                            // Assuming mapping legacy or unimplemented
                             vscode.window.showInformationMessage('YAMS Original Generator is deprecated, using YAMG.');
-                            // Fallback or load if needed
                         } else if (view === 'yagsl') {
                             vscode.window.showInformationMessage('YAGSL Generator coming soon.');
                         }
@@ -185,10 +195,35 @@ async function generateSubsystem(data) {
     const subsystemsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'subsystems');
 
     // Check Vendor Deps
-    const missingDeps = await checkVendordeps(rootPath, data.hardware.map(h => h.import || ''));
-    if (missingDeps.length > 0) {
+    const installedVendors = await checkVendordeps(rootPath, data.hardware.map(h => h.import || ''));
+
+    // YASS Specific Checks
+    if (data.subsystemType === 'yagsl') {
+        // Re-check for YAGSL specifically
+        const vendorPath = path.join(rootPath, 'vendordeps');
+        let hasYagsl = false;
+        if (await exists(vendorPath)) {
+            const files = await vscode.workspace.fs.readDirectory(vscode.Uri.file(vendorPath));
+            for (const [file] of files) {
+                if (file.toLowerCase().includes('yagsl')) hasYagsl = true;
+            }
+        }
+
+        if (!hasYagsl) {
+            const action = await vscode.window.showWarningMessage(
+                `YAGSL Library is missing. Would you like to open the installation page?`,
+                'Open URL', 'Ignore'
+            );
+            if (action === 'Open URL') {
+                vscode.env.openExternal(vscode.Uri.parse('https://brbronco.github.io/YAGSL-Lib/yagsl.json'));
+                return;
+            }
+        }
+    }
+
+    if (installedVendors.length > 0) {
         const action = await vscode.window.showWarningMessage(
-            `Missing libraries: ${missingDeps.join(', ')}. Would you like to open the Vendor Library Manager to install them?`,
+            `Missing libraries: ${installedVendors.join(', ')}. Would you like to open the Vendor Library Manager to install them?`,
             'Open Manager', 'Ignore'
         );
         if (action === 'Open Manager') {
