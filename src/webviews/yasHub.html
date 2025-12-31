@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yet Another... Integration Hub</title>
+    <style>
+        :root {
+            --background: var(--vscode-editor-background);
+            --foreground: var(--vscode-editor-foreground);
+            --card-bg: var(--vscode-editorWidget-background);
+            --border: var(--vscode-widget-border);
+            --accent: var(--vscode-textLink-foreground);
+            --button-bg: var(--vscode-button-background);
+            --button-fg: var(--vscode-button-foreground);
+            --button-hover: var(--vscode-button-hoverBackground);
+        }
+
+        body {
+            font-family: var(--vscode-font-family);
+            background-color: var(--background);
+            color: var(--foreground);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--accent);
+        }
+
+        .selection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            cursor: pointer;
+            height: 100%;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            border-color: var(--accent);
+        }
+
+        .card h2 {
+            color: var(--accent);
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .card p {
+            flex: 1;
+            line-height: 1.6;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .card .btn {
+            background-color: var(--button-bg);
+            color: var(--button-fg);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+            width: auto;
+            min-width: 120px;
+        }
+
+        .card .btn:hover {
+            opacity: 0.9;
+        }
+
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 0.8em;
+            opacity: 0.6;
+            margin-bottom: 20px;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1 id="pageTitle">Yet Another... Integration Hub</h1>
+
+    <!-- Selection Screen -->
+    <div id="selectionScreen" class="selection-grid fade-in">
+        <div class="card" onclick="openGenerator('yams')">
+            <h2>YAMS</h2>
+            <p><strong>Yet Another Mechanism System</strong><br>Standard mechanism subsystems (Elevators, Arms) with
+                built-in physics simulation.</p>
+            <button class="btn">Open YAMS</button>
+        </div>
+
+        <div class="card" onclick="openGenerator('yamg')">
+            <h2>YAMG</h2>
+            <p><strong>Yet Another Mechanism Generator</strong><br>Advanced mechanism structure generation for complex
+                custom subsystems.</p>
+            <button class="btn">Open YAMG</button>
+        </div>
+
+        <div class="card" onclick="openGenerator('yagsl')">
+            <h2>YAGSL</h2>
+            <p><strong>Yet Another Generic Swerve Library</strong><br>Generate Swerve Drive subsystems and configuration
+                for YAGSL.</p>
+            <button class="btn">Open YAGSL</button>
+        </div>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        function openGenerator(type) {
+            // Post message to extension to switch view to the specific generator
+            vscode.postMessage({ command: 'switchView', view: type });
+        }
+
+
+    </script>
+</body>
+
+</html>

@@ -27,7 +27,7 @@ function activate(context) {
 
         // View Loader Helper
         const loadView = async (viewName) => {
-            const fileName = viewName === 'hub' ? 'yamsHub.html' : 'subsystemWizard.html';
+            const fileName = viewName === 'hub' ? 'yasHub.html' : 'subsystemWizard.html';
             const htmlPath = path.join(context.extensionPath, 'src', 'webviews', fileName);
             panel.webview.html = await readFile(htmlPath);
         };
@@ -121,6 +121,7 @@ function activate(context) {
                         const wf = vscode.workspace.workspaceFolders;
                         if (wf) {
                             await generateYAMSSubsystem(message.data, wf[0].uri.fsPath);
+                            panel.dispose(); // Close webview after generation
                         }
                         return;
 
@@ -140,6 +141,24 @@ function activate(context) {
                     case 'refresh':
                         const updatedVendors = await checkVendors();
                         panel.webview.postMessage({ command: 'updateVendordeps', vendors: updatedVendors });
+                        return;
+
+                    case 'switchView':
+                        const view = message.view;
+                        if (view === 'yamg') {
+                            const yamgPath = path.join(context.extensionPath, 'src', 'webviews', 'YASS', 'yamg.html');
+                            if (await exists(yamgPath)) {
+                                panel.webview.html = await readFile(yamgPath);
+                            } else {
+                                vscode.window.showErrorMessage('YAMG generator file not found!');
+                            }
+                        } else if (view === 'yams') {
+                            // Assuming mapping legacy or unimplemented
+                            vscode.window.showInformationMessage('YAMS Original Generator is deprecated, using YAMG.');
+                            // Fallback or load if needed
+                        } else if (view === 'yagsl') {
+                            vscode.window.showInformationMessage('YAGSL Generator coming soon.');
+                        }
                         return;
 
                 }

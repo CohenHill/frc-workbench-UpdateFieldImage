@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YAMS Integration Hub</title>
+    <title>YAMG Generator</title>
     <style>
         :root {
             --background: var(--vscode-editor-background);
@@ -29,15 +29,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
             box-sizing: border-box;
-        }
-
-        h1 {
-            font-size: 2em;
-            margin-bottom: 20px;
-            text-align: center;
-            color: var(--accent);
         }
 
         .container {
@@ -131,14 +123,6 @@
             opacity: 0.9;
         }
 
-        .footer {
-            margin-top: 40px;
-            text-align: center;
-            font-size: 0.8em;
-            opacity: 0.6;
-            margin-bottom: 20px;
-        }
-
         .warning-box {
             background: rgba(255, 165, 0, 0.1);
             border: 1px solid orange;
@@ -149,21 +133,19 @@
             color: var(--foreground);
         }
 
-        #simParams {
-            display: none;
-            /* Toggled by JS */
+        .mech-params {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed var(--border);
         }
     </style>
 </head>
 
 <body>
-
-    <h1>YAMS Mechanism Generator</h1>
-
     <div class="container">
-
         <div class="warning-box">
             NOTE: Generating code will make a request to <strong>yamgen.com</strong> to fetch the latest templates.
+            <br><strong>Generator: YAMG (Yet Another Mechanism Generator)</strong>
         </div>
 
         <div class="section">
@@ -325,90 +307,86 @@
             </div>
         </div>
 
-        <button class="btn" id="generateBtn">Generate YAMS Subsystem</button>
+        <button class="btn" id="generateBtn">Generate YAMG Subsystem</button>
 
     </div>
-
-    <div class="footer">
-        Based on source by nstrike, made by v0 and Yet Another Software Suite
-    </div>
-
-    <script>
-        const vscode = acquireVsCodeApi();
-
-        const mechTypeSelect = document.getElementById('mechanismType');
-        const elevParams = document.getElementById('elevatorParams');
-        const armParams = document.getElementById('armParams');
-
-        mechTypeSelect.addEventListener('change', () => {
-            const val = mechTypeSelect.value;
-            elevParams.style.display = 'none';
-            armParams.style.display = 'none';
-
-            if (val === 'Elevator') {
-                elevParams.style.display = 'block';
-            } else if (val === 'Arm' || val === 'Pivot') {
-                armParams.style.display = 'block';
-            }
-        });
-
-        document.getElementById('generateBtn').addEventListener('click', () => {
-            const data = {
-                subsystemName: document.getElementById('subsystemName').value,
-                mechanismType: document.getElementById('mechanismType').value,
-
-                // Motor
-                motorControllerType: document.getElementById('controllerType').value,
-                motorType: document.getElementById('motorType').value,
-                canId: document.getElementById('canId').value,
-                gearRatio: document.getElementById('gearRatio').value,
-                brakeMode: document.getElementById('brakeMode').checked,
-                inverted: document.getElementById('inverted').checked,
-                enableStatorLimit: true, // simplified
-                statorCurrentLimit: document.getElementById('statorLimit').value,
-                enableSupplyLimit: true, // simplified
-                supplyCurrentLimit: document.getElementById('supplyLimit').value,
-
-                // Control
-                pidValues: {
-                    kP: document.getElementById('kP').value,
-                    kI: document.getElementById('kI').value,
-                    kD: document.getElementById('kD').value
-                },
-                kS: document.getElementById('kS').value,
-                kV: document.getElementById('kV').value,
-                kA: document.getElementById('kA').value,
-                kG: document.getElementById('kG').value,
-                maxVelocity: document.getElementById('maxVelocity').value,
-                maxAcceleration: document.getElementById('maxAcceleration').value,
-                // Interpreted fields
-                controlType: document.getElementById('controlType').value,
-
-                // Sim Params (Elevator)
-                minHeight: document.getElementById('minHeight').value,
-                maxHeight: document.getElementById('maxHeight').value,
-                drumRadius: document.getElementById('drumRadius').value,
-                mass: document.getElementById('mass').value,
-
-                // Sim Params (Arm/Pivot) - we'll just send all, backend filters
-                armLength: document.getElementById('armLength').value,
-                minAngle: document.getElementById('minAngle').value,
-                maxAngle: document.getElementById('maxAngle').value,
-                armMass: document.getElementById('armMass').value,
-
-                // Telemetry
-                ntKey: document.getElementById('ntKey').value,
-                positionUnit: document.getElementById('positionUnit').value,
-                logPosition: document.getElementById('logPosition').checked,
-                logVelocity: document.getElementById('logVelocity').checked,
-                logCurrent: document.getElementById('logCurrent').checked,
-                logVoltage: document.getElementById('logVoltage').checked,
-                logTemperature: document.getElementById('logTemperature').checked,
-            };
-
-            vscode.postMessage({ command: 'generateYAMS', data });
-        });
-    </script>
 </body>
+<script>
+    const vscode = acquireVsCodeApi();
+
+    const mechTypeSelect = document.getElementById('mechanismType');
+    const elevParams = document.getElementById('elevatorParams');
+    const armParams = document.getElementById('armParams');
+
+    mechTypeSelect.addEventListener('change', () => {
+        const val = mechTypeSelect.value;
+        elevParams.style.display = 'none';
+        armParams.style.display = 'none';
+
+        if (val === 'Elevator') {
+            elevParams.style.display = 'block';
+        } else if (val === 'Arm' || val === 'Pivot') {
+            armParams.style.display = 'block';
+        }
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', () => {
+        const data = {
+            subsystemName: document.getElementById('subsystemName').value,
+            mechanismType: document.getElementById('mechanismType').value,
+
+            // Motor
+            motorControllerType: document.getElementById('controllerType').value,
+            motorType: document.getElementById('motorType').value,
+            canId: document.getElementById('canId').value,
+            gearRatio: document.getElementById('gearRatio').value,
+            brakeMode: document.getElementById('brakeMode').checked,
+            inverted: document.getElementById('inverted').checked,
+            enableStatorLimit: true, // simplified
+            statorCurrentLimit: document.getElementById('statorLimit').value,
+            enableSupplyLimit: true, // simplified
+            supplyCurrentLimit: document.getElementById('supplyLimit').value,
+
+            // Control
+            pidValues: {
+                kP: document.getElementById('kP').value,
+                kI: document.getElementById('kI').value,
+                kD: document.getElementById('kD').value
+            },
+            kS: document.getElementById('kS').value,
+            kV: document.getElementById('kV').value,
+            kA: document.getElementById('kA').value,
+            kG: document.getElementById('kG').value,
+            maxVelocity: document.getElementById('maxVelocity').value,
+            maxAcceleration: document.getElementById('maxAcceleration').value,
+            // Interpreted fields
+            controlType: document.getElementById('controlType').value,
+
+            // Sim Params (Elevator)
+            minHeight: document.getElementById('minHeight').value,
+            maxHeight: document.getElementById('maxHeight').value,
+            drumRadius: document.getElementById('drumRadius').value,
+            mass: document.getElementById('mass').value,
+
+            // Sim Params (Arm/Pivot) - we'll just send all, backend filters
+            armLength: document.getElementById('armLength').value,
+            minAngle: document.getElementById('minAngle').value,
+            maxAngle: document.getElementById('maxAngle').value,
+            armMass: document.getElementById('armMass').value,
+
+            // Telemetry
+            ntKey: document.getElementById('ntKey').value,
+            positionUnit: document.getElementById('positionUnit').value,
+            logPosition: document.getElementById('logPosition').checked,
+            logVelocity: document.getElementById('logVelocity').checked,
+            logCurrent: document.getElementById('logCurrent').checked,
+            logVoltage: document.getElementById('logVoltage').checked,
+            logTemperature: document.getElementById('logTemperature').checked,
+        };
+
+        vscode.postMessage({ command: 'generateYAMS', data });
+    });
+
+</script>
 
 </html>
