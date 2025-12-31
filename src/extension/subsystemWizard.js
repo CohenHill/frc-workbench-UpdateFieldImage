@@ -137,6 +137,11 @@ function activate(context) {
                         }
                         return;
 
+                    case 'refresh':
+                        const updatedVendors = await checkVendors();
+                        panel.webview.postMessage({ command: 'updateVendordeps', vendors: updatedVendors });
+                        return;
+
                 }
             },
             undefined,

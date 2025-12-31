@@ -15,6 +15,9 @@
             --button-bg: var(--vscode-button-background);
             --button-fg: var(--vscode-button-foreground);
             --button-hover: var(--vscode-button-hoverBackground);
+            --input-bg: var(--vscode-input-background);
+            --input-fg: var(--vscode-input-foreground);
+            --input-border: var(--vscode-input-border);
         }
 
         body {
@@ -22,270 +25,388 @@
             background-color: var(--background);
             color: var(--foreground);
             margin: 0;
-            padding: 40px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             box-sizing: border-box;
         }
 
         h1 {
-            font-size: 2.5em;
-            font-weight: 300;
-            margin-bottom: 10px;
+            font-size: 2em;
+            margin-bottom: 20px;
             text-align: center;
-            background: linear-gradient(120deg, var(--accent), #ff6b6b);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--accent);
         }
 
-        p.subtitle {
-            opacity: 0.7;
-            margin-bottom: 50px;
-            font-size: 1.1em;
-            max-width: 600px;
-            text-align: center;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            max-width: 900px;
+        .container {
+            max-width: 800px;
             width: 100%;
-        }
-
-        .card {
             background-color: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 8px;
             padding: 30px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            transition: transform 0.2s, box-shadow 0.2s;
-            position: relative;
-            overflow: hidden;
+            box-sizing: border-box;
         }
 
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        .section {
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            font-weight: 500;
+            opacity: 0.8;
+        }
+
+        input,
+        select {
+            padding: 8px;
+            background: var(--input-bg);
+            color: var(--input-fg);
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        input:focus,
+        select:focus {
+            outline: 1px solid var(--accent);
             border-color: var(--accent);
         }
 
-        .card.disabled {
-            opacity: 0.5;
-            pointer-events: none;
-            filter: grayscale(1);
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
         }
 
-        .icon {
-            font-size: 4em;
-            margin-bottom: 20px;
-        }
-
-        h2 {
-            margin: 0 0 10px 0;
-            font-weight: 500;
-        }
-
-        p {
-            font-size: 0.95em;
-            opacity: 0.8;
-            margin-bottom: 25px;
-            line-height: 1.5;
+        .checkbox-group input {
+            width: auto;
         }
 
         .btn {
             background-color: var(--button-bg);
             color: var(--button-fg);
             border: none;
-            padding: 10px 24px;
+            padding: 12px 24px;
             border-radius: 4px;
             font-size: 1em;
             cursor: pointer;
-            transition: background 0.2s;
-            text-decoration: none;
-            display: inline-block;
+            width: 100%;
+            font-weight: 600;
+            transition: opacity 0.2s;
         }
 
         .btn:hover {
-            background-color: var(--button-hover);
+            opacity: 0.9;
         }
 
-        .back-btn {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: transparent;
-            color: var(--foreground);
-            border: 1px solid var(--border);
-            padding: 6px 12px;
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 0.8em;
+            opacity: 0.6;
+            margin-bottom: 20px;
+        }
+
+        .warning-box {
+            background: rgba(255, 165, 0, 0.1);
+            border: 1px solid orange;
+            padding: 10px;
+            border-radius: 4px;
             font-size: 0.9em;
-            cursor: pointer;
-            opacity: 0.7;
+            margin-bottom: 20px;
+            color: var(--foreground);
         }
 
-        .back-btn:hover {
-            opacity: 1;
-            border-color: var(--accent);
+        #simParams {
+            display: none;
+            /* Toggled by JS */
         }
     </style>
 </head>
 
 <body>
 
-    <button class="back-btn" id="backBtn">← Back to Wizard</button>
+    <h1>YAMS Mechanism Generator</h1>
 
-    <h1>YAMS Integration</h1>
-    <p class="subtitle">Empower your robot with Yet Another Mechanism System. Choose a tool to get started.</p>
+    <div class="container">
 
-    <div class="container" style="max-width: 800px; width: 100%;">
+        <div class="warning-box">
+            NOTE: Generating code will make a request to <strong>yamgen.com</strong> to fetch the latest templates.
+        </div>
 
-        <!-- Generator Form (Visible by default now per user request) -->
-        <div class="card" style="align-items: stretch; text-align: left;">
-            <div style="text-align:center; margin-bottom: 20px;">
-                <div class="icon" style="font-size: 3em;">⚙️</div>
-                <h2>Mechanism Generator</h2>
-            </div>
-
+        <div class="section">
             <div class="form-group">
                 <label>Subsystem Name</label>
-                <input type="text" id="subsystemName" placeholder="e.g. ElevatorSubsystem">
+                <input type="text" id="subsystemName" placeholder="e.g. ElevatorSubsystem" value="ElevatorSubsystem">
             </div>
+        </div>
 
-            <div class="form-group">
-                <label>Mechanism Type</label>
-                <select id="mechanismType">
-                    <option value="pivot">Pivot (Turret/Wrist)</option>
-                    <option value="elevator">Elevator</option>
-                    <option value="arm">Arm</option>
-                </select>
-            </div>
-
-            <h3 style="margin-top:20px; border-bottom:1px solid var(--border); padding-bottom:5px;">Motor Configuration
-            </h3>
-            <div class="grid-2">
+        <div class="section">
+            <h3>Mechanism Configuration</h3>
+            <div class="form-row">
                 <div class="form-group">
-                    <label>Controller Type</label>
-                    <select id="motorController">
-                        <option value="TalonFX">TalonFX</option>
-                        <option value="SparkMax">SparkMax</option>
-                        <option value="TalonSRX">TalonSRX</option>
+                    <label>Mechanism Type</label>
+                    <select id="mechanismType">
+                        <option value="Elevator">Elevator</option>
+                        <option value="Arm">Arm</option>
+                        <option value="Pivot">Pivot (Turret/Wrist)</option>
                     </select>
                 </div>
+            </div>
+
+            <!-- Dynamic Sim Params based on type -->
+            <div id="elevatorParams" class="mech-params">
+                <div class="form-row">
+                    <div class="form-group"><label>Min Height (m)</label><input type="number" step="0.01" id="minHeight"
+                            value="0.0"></div>
+                    <div class="form-group"><label>Max Height (m)</label><input type="number" step="0.01" id="maxHeight"
+                            value="1.0"></div>
+                    <div class="form-group"><label>Drum Radius (m)</label><input type="number" step="0.001"
+                            id="drumRadius" value="0.05"></div>
+                    <div class="form-group"><label>Mass (kg)</label><input type="number" step="0.1" id="mass"
+                            value="5.0"></div>
+                </div>
+            </div>
+
+            <div id="armParams" class="mech-params" style="display:none;">
+                <div class="form-row">
+                    <div class="form-group"><label>Arm Length (m)</label><input type="number" step="0.01" id="armLength"
+                            value="0.75"></div>
+                    <div class="form-group"><label>Min Angle (deg)</label><input type="number" step="1" id="minAngle"
+                            value="0"></div>
+                    <div class="form-group"><label>Max Angle (deg)</label><input type="number" step="1" id="maxAngle"
+                            value="90"></div>
+                    <div class="form-group"><label>Mass (kg)</label><input type="number" step="0.1" id="armMass"
+                            value="5.0"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Motor Configuration</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Motor Controller</label>
+                    <select id="controllerType">
+                        <option value="SparkMax">SparkMax</option>
+                        <option value="SparkFlex">SparkFlex</option>
+                        <option value="TalonFX">TalonFX</option>
+                        <option value="TalonFXS">TalonFXS</option>
+                        <option value="ThriftyNova">ThriftyNova</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Motor Type</label>
+                    <select id="motorType">
+                        <!-- Populated mostly for SparkMax/Flex -->
+                        <option value="NEO">NEO</option>
+                        <option value="NEO550">NEO 550</option>
+                        <option value="Vortex">NEO Vortex</option>
+                        <option value="Minion">Minion</option>
+                        <option value="Krakenx60">Kraken X60</option>
+                        <option value="Krakenx44">Kraken X44</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
                 <div class="form-group">
                     <label>CAN ID</label>
                     <input type="number" id="canId" value="1">
                 </div>
-            </div>
-
-            <h3 style="margin-top:20px; border-bottom:1px solid var(--border); padding-bottom:5px;">Control
-                Configuration</h3>
-            <div class="grid-3">
                 <div class="form-group">
-                    <label>kP</label>
-                    <input type="text" id="kP" value="0.0">
-                </div>
-                <div class="form-group">
-                    <label>kI</label>
-                    <input type="text" id="kI" value="0.0">
-                </div>
-                <div class="form-group">
-                    <label>kD</label>
-                    <input type="text" id="kD" value="0.0">
+                    <label>Gear Ratio (X:1)</label>
+                    <input type="number" id="gearRatio" value="1.0" step="0.01">
                 </div>
             </div>
-
-            <label style="margin-top:10px; display:block; font-weight:600;">Feedforward</label>
-            <div class="grid-4" style="margin-top:5px;">
-                <div class="form-group"><label style="font-size:0.8em">kS</label><input type="text" id="kS" value="0.0">
-                </div>
-                <div class="form-group"><label style="font-size:0.8em">kV</label><input type="text" id="kV" value="0.0">
-                </div>
-                <div class="form-group"><label style="font-size:0.8em">kA</label><input type="text" id="kA" value="0.0">
-                </div>
-                <div class="form-group"><label style="font-size:0.8em">kG</label><input type="text" id="kG" value="0.0">
-                </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="brakeMode" checked>
+                <label for="brakeMode">Brake Mode</label>
             </div>
-
-            <div style="margin-top:30px; text-align:right;">
-                <button class="btn" id="generateBtn" style="width:100%;">Generate Code</button>
+            <div class="checkbox-group">
+                <input type="checkbox" id="inverted">
+                <label for="inverted">Inverted</label>
+            </div>
+            <div class="form-row" style="margin-top:10px;">
+                <div class="form-group">
+                    <label>Stator Current Limit (A)</label>
+                    <input type="number" id="statorLimit" value="40">
+                </div>
+                <div class="form-group">
+                    <label>Supply Current Limit (A)</label>
+                    <input type="number" id="supplyLimit" value="40">
+                </div>
             </div>
         </div>
+
+        <div class="section">
+            <h3>Control (PID + FF)</h3>
+            <div class="form-row">
+                <div class="form-group"><label>kP</label><input type="number" step="0.0001" id="kP" value="0.0"></div>
+                <div class="form-group"><label>kI</label><input type="number" step="0.0001" id="kI" value="0.0"></div>
+                <div class="form-group"><label>kD</label><input type="number" step="0.0001" id="kD" value="0.0"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>kS</label><input type="number" step="0.0001" id="kS" value="0.0"></div>
+                <div class="form-group"><label>kV</label><input type="number" step="0.0001" id="kV" value="0.0"></div>
+                <div class="form-group"><label>kA</label><input type="number" step="0.0001" id="kA" value="0.0"></div>
+                <div class="form-group"><label>kG</label><input type="number" step="0.0001" id="kG" value="0.0"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Max Velocity</label><input type="number" step="0.1" id="maxVelocity"
+                        value="1.0"></div>
+                <div class="form-group"><label>Max Acceleration</label><input type="number" step="0.1"
+                        id="maxAcceleration" value="1.0"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Control Type</label>
+                    <select id="controlType">
+                        <option value="Motor">Motor Controller (On-board PID)</option>
+                        <option value="WPILib">WPILib (Rio PID)</option>
+                        <option value="Tunable">Tunable (Shuffleboard PID)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Telemetry</h3>
+            <div class="form-row">
+                <div class="form-group"><label>NetworkTables Key</label><input type="text" id="ntKey" value="Subsystem">
+                </div>
+                <div class="form-group">
+                    <label>Position Unit</label>
+                    <select id="positionUnit">
+                        <option value="Rotations">Rotations</option>
+                        <option value="Meters">Meters</option>
+                        <option value="Degrees">Degrees</option>
+                        <option value="Radians">Radians</option>
+                    </select>
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="logPosition" checked><label for="logPosition">Log Position</label>
+                <input type="checkbox" id="logVelocity" checked><label for="logVelocity">Log Velocity</label>
+                <input type="checkbox" id="logCurrent" checked><label for="logCurrent">Log Current</label>
+                <input type="checkbox" id="logVoltage" checked><label for="logVoltage">Log Voltage</label>
+                <input type="checkbox" id="logTemperature"><label for="logTemperature">Log Temp</label>
+            </div>
+        </div>
+
+        <button class="btn" id="generateBtn">Generate YAMS Subsystem</button>
+
     </div>
 
-    <style>
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-
-        input,
-        select {
-            width: 100%;
-            padding: 8px;
-            background: var(--vscode-input-background);
-            color: var(--vscode-input-foreground);
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-        }
-
-        .grid-4 {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            gap: 10px;
-        }
-    </style>
+    <div class="footer">
+        Based on source by nstrike, made by v0 and Yet Another Software Suite
+    </div>
 
     <script>
         const vscode = acquireVsCodeApi();
 
-        document.getElementById('generateBtn').addEventListener('click', () => {
-            const data = {
-                subsystemName: document.getElementById('subsystemName').value || 'NewSubsystem',
-                mechanismType: document.getElementById('mechanismType').value,
-                motorConfig: {
-                    controllerType: document.getElementById('motorController').value,
-                    canId: document.getElementById('canId').value
-                },
-                controlConfig: {
-                    kP: document.getElementById('kP').value,
-                    kI: document.getElementById('kI').value,
-                    kD: document.getElementById('kD').value,
-                    kS: document.getElementById('kS').value,
-                    kV: document.getElementById('kV').value,
-                    kA: document.getElementById('kA').value,
-                    kG: document.getElementById('kG').value
-                },
-                telemetry: {}
-            };
-            vscode.postMessage({ command: 'generateYAMS', data: data });
+        const mechTypeSelect = document.getElementById('mechanismType');
+        const elevParams = document.getElementById('elevatorParams');
+        const armParams = document.getElementById('armParams');
+
+        mechTypeSelect.addEventListener('change', () => {
+            const val = mechTypeSelect.value;
+            elevParams.style.display = 'none';
+            armParams.style.display = 'none';
+
+            if (val === 'Elevator') {
+                elevParams.style.display = 'block';
+            } else if (val === 'Arm' || val === 'Pivot') {
+                armParams.style.display = 'block';
+            }
         });
 
-        document.getElementById('backBtn').addEventListener('click', () => {
-            vscode.postMessage({ command: 'backToWizard' });
+        document.getElementById('generateBtn').addEventListener('click', () => {
+            const data = {
+                subsystemName: document.getElementById('subsystemName').value,
+                mechanismType: document.getElementById('mechanismType').value,
+
+                // Motor
+                motorControllerType: document.getElementById('controllerType').value,
+                motorType: document.getElementById('motorType').value,
+                canId: document.getElementById('canId').value,
+                gearRatio: document.getElementById('gearRatio').value,
+                brakeMode: document.getElementById('brakeMode').checked,
+                inverted: document.getElementById('inverted').checked,
+                enableStatorLimit: true, // simplified
+                statorCurrentLimit: document.getElementById('statorLimit').value,
+                enableSupplyLimit: true, // simplified
+                supplyCurrentLimit: document.getElementById('supplyLimit').value,
+
+                // Control
+                pidValues: {
+                    kP: document.getElementById('kP').value,
+                    kI: document.getElementById('kI').value,
+                    kD: document.getElementById('kD').value
+                },
+                kS: document.getElementById('kS').value,
+                kV: document.getElementById('kV').value,
+                kA: document.getElementById('kA').value,
+                kG: document.getElementById('kG').value,
+                maxVelocity: document.getElementById('maxVelocity').value,
+                maxAcceleration: document.getElementById('maxAcceleration').value,
+                // Interpreted fields
+                controlType: document.getElementById('controlType').value,
+
+                // Sim Params (Elevator)
+                minHeight: document.getElementById('minHeight').value,
+                maxHeight: document.getElementById('maxHeight').value,
+                drumRadius: document.getElementById('drumRadius').value,
+                mass: document.getElementById('mass').value,
+
+                // Sim Params (Arm/Pivot) - we'll just send all, backend filters
+                armLength: document.getElementById('armLength').value,
+                minAngle: document.getElementById('minAngle').value,
+                maxAngle: document.getElementById('maxAngle').value,
+                armMass: document.getElementById('armMass').value,
+
+                // Telemetry
+                ntKey: document.getElementById('ntKey').value,
+                positionUnit: document.getElementById('positionUnit').value,
+                logPosition: document.getElementById('logPosition').checked,
+                logVelocity: document.getElementById('logVelocity').checked,
+                logCurrent: document.getElementById('logCurrent').checked,
+                logVoltage: document.getElementById('logVoltage').checked,
+                logTemperature: document.getElementById('logTemperature').checked,
+            };
+
+            vscode.postMessage({ command: 'generateYAMS', data });
         });
     </script>
 </body>

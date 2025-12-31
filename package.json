@@ -2,7 +2,7 @@
   "name": "frc-workbench",
   "displayName": "FRC Workbench",
   "description": "A collection of helpful tools for FRC teams, including PID tuning and PathPlanner previews.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "riteshrajas",
   "repository": {
     "type": "git",
@@ -10,7 +10,7 @@
   },
   "icon": "images/image.png",
   "engines": {
-    "vscode": "^1.89.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Other",
@@ -223,6 +223,7 @@
     "eslint": "^9.39.1"
   },
   "dependencies": {
+    "handlebars": "^4.7.8",
     "wpilib-nt-client": "^1.7.2",
     "wpilib-ws-robot": "^0.0.7"
   }

@@ -42,6 +42,8 @@ async function checkVendordeps(rootPath, imports) {
     return Array.from(missing);
 }
 
+const { HELPER_LIBRARY } = require('./deviceHelpers');
+
 /**
  * Generates imports, declarations, and initializers for hardware.
  * @param {Array} hardwareList - List of device objects from UI
@@ -91,10 +93,6 @@ function generateHardwareCode(hardwareList, subsystemName, useConstants, constan
                 imports.add('com.ctre.phoenix6.hardware.TalonFX');
                 declarations.push(`  private final TalonFX ${name};`);
                 initializers.push(`    ${name} = new TalonFX(${idVal}, "${bus || 'rio'}");`);
-                if (methodsToGen?.includes('getVelocity'))
-                    helperMethods.push(`  public double get${name}Velocity() {\n    return ${name}.getVelocity().getValue();\n  }`);
-                if (methodsToGen?.includes('getPosition'))
-                    helperMethods.push(`  public double get${name}Position() {\n    return ${name}.getPosition().getValue();\n  }`);
                 break;
 
             case 'TalonFXS':
@@ -103,16 +101,12 @@ function generateHardwareCode(hardwareList, subsystemName, useConstants, constan
                 imports.add('com.ctre.phoenix6.hardware.TalonFXS');
                 declarations.push(`  private final TalonFXS ${name};`);
                 initializers.push(`    ${name} = new TalonFXS(${idVal}, "${bus || 'rio'}");`);
-                if (methodsToGen?.includes('getVelocity'))
-                    helperMethods.push(`  public double get${name}Velocity() {\n    return ${name}.getVelocity().getValue();\n  }`);
                 break;
 
             case 'CANcoder':
                 imports.add('com.ctre.phoenix6.hardware.CANcoder');
                 declarations.push(`  private final CANcoder ${name};`);
                 initializers.push(`    ${name} = new CANcoder(${idVal}, "${bus || 'rio'}");`);
-                if (methodsToGen?.includes('getPosition'))
-                    helperMethods.push(`  public double get${name}Position() {\n    return ${name}.getAbsolutePosition().getValue();\n  }`);
                 break;
 
             case 'Pigeon 2.0':
@@ -120,8 +114,6 @@ function generateHardwareCode(hardwareList, subsystemName, useConstants, constan
                 imports.add('com.ctre.phoenix6.hardware.Pigeon2');
                 declarations.push(`  private final Pigeon2 ${name};`);
                 initializers.push(`    ${name} = new Pigeon2(${idVal}, "${bus || 'rio'}");`);
-                if (methodsToGen?.includes('getYaw'))
-                    helperMethods.push(`  public double get${name}Yaw() {\n    return ${name}.getYaw().getValue();\n  }`);
                 break;
 
             case 'CANrange':
@@ -158,16 +150,13 @@ function generateHardwareCode(hardwareList, subsystemName, useConstants, constan
             // --- REV Robotics ---
             case 'CANSparkMax':
             case 'SPARK MAX':
-            case 'Core Hex Motor': // If using SparkMax
+            case 'SparkMax':
                 imports.add('com.revrobotics.CANSparkMax');
                 imports.add('com.revrobotics.CANSparkLowLevel.MotorType');
                 declarations.push(`  private final CANSparkMax ${name};`);
                 initializers.push(`    ${name} = new CANSparkMax(${idVal}, MotorType.kBrushless);`);
-                if (methodsToGen?.includes('getVelocity'))
-                    helperMethods.push(`  public double get${name}Velocity() {\n    return ${name}.getEncoder().getVelocity();\n  }`);
                 break;
 
-            case 'CANSparkFlex':
             case 'SparkFlex':
             case 'NEO Vortex':
                 imports.add('com.revrobotics.spark.SparkFlex');
@@ -208,9 +197,6 @@ function generateHardwareCode(hardwareList, subsystemName, useConstants, constan
                 declarations.push(`  private final DoubleSolenoid ${name};`);
                 // Simple assumption: CTREPCM
                 initializers.push(`    ${name} = new DoubleSolenoid(PneumaticsModuleType.CTREPCM, ${idVal}, ${idVal} + 1);`);
-                if (methodsToGen?.includes('toggle')) {
-                    helperMethods.push(`  public void toggle${name}() {\n    ${name}.toggle();\n  }`);
-                }
                 break;
 
             case 'Solenoid':
@@ -218,9 +204,6 @@ function generateHardwareCode(hardwareList, subsystemName, useConstants, constan
                 imports.add('edu.wpi.first.wpilibj.PneumaticsModuleType');
                 declarations.push(`  private final Solenoid ${name};`);
                 initializers.push(`    ${name} = new Solenoid(PneumaticsModuleType.CTREPCM, ${idVal});`);
-                if (methodsToGen?.includes('toggle')) {
-                    helperMethods.push(`  public void toggle${name}() {\n    ${name}.toggle();\n  }`);
-                }
                 break;
 
             case 'DigitalInput':
@@ -251,6 +234,21 @@ function generateHardwareCode(hardwareList, subsystemName, useConstants, constan
                 // Fallback for unknown types - generic Object?
                 initializers.push(`    // Unknown device type or initialization logic: ${type}`);
                 break;
+        }
+
+        // --- Helper Generation Logic ---
+        // Look up supported helpers for this device type
+        const supportedHelpers = HELPER_LIBRARY[type];
+        if (supportedHelpers && methodsToGen && methodsToGen.length > 0) {
+            methodsToGen.forEach(methodId => {
+                const helperDef = supportedHelpers.find(h => h.id === methodId);
+                if (helperDef && helperDef.gen) {
+                    helperMethods.push(helperDef.gen(name));
+                    if (helperDef.requiredImports) {
+                        helperDef.requiredImports.forEach(imp => imports.add(imp));
+                    }
+                }
+            });
         }
     });
 

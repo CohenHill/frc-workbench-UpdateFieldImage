@@ -324,6 +324,8 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <h1>Create Subsystem</h1>
             <div>
+                <button class="btn" id="refreshBtn" title="Refresh Vendor Libraries"
+                    style="margin-right:10px; background-color: var(--sidebar-bg); border: 1px solid var(--border-color);">↻</button>
                 <button class="btn" id="yamgBtn"
                     style="margin-right:10px; background-color: var(--sidebar-bg); border: 1px solid var(--border-color);">Using
                     YAMG!</button>
@@ -492,6 +494,107 @@
     <script>
         const vscode = acquireVsCodeApi();
 
+        // Mirror of src/generators/deviceHelpers.js
+        const DEVICE_HELPERS = {
+            'TalonFX': [
+                { id: 'setSpeed', label: 'setSpeed(%)' },
+                { id: 'stop', label: 'stop()' },
+                { id: 'getVelocity', label: 'getVelocity()' },
+                { id: 'getPosition', label: 'getPosition()' },
+                { id: 'setVoltage', label: 'setVoltage()' },
+                { id: 'getTemp', label: 'getTemp()' }
+            ],
+            'TalonFXS': [
+                { id: 'setSpeed', label: 'setSpeed(%)' },
+                { id: 'stop', label: 'stop()' },
+                { id: 'getVelocity', label: 'getVelocity()' },
+                { id: 'getPosition', label: 'getPosition()' },
+                { id: 'setVoltage', label: 'setVoltage()' }
+            ],
+            'CANSparkMax': [
+                { id: 'setSpeed', label: 'setSpeed(%)' },
+                { id: 'stop', label: 'stop()' },
+                { id: 'getVelocity', label: 'getVelocity()' },
+                { id: 'getPosition', label: 'getPosition()' },
+                { id: 'setVoltage', label: 'setVoltage()' },
+                { id: 'getTemp', label: 'getTemp()' }
+            ],
+            'SparkMax': [
+                { id: 'setSpeed', label: 'setSpeed(%)' },
+                { id: 'stop', label: 'stop()' },
+                { id: 'getVelocity', label: 'getVelocity()' },
+                { id: 'getPosition', label: 'getPosition()' },
+                { id: 'setVoltage', label: 'setVoltage()' },
+                { id: 'getTemp', label: 'getTemp()' }
+            ],
+            'SparkFlex': [
+                { id: 'setSpeed', label: 'setSpeed(%)' },
+                { id: 'stop', label: 'stop()' },
+                { id: 'getVelocity', label: 'getVelocity()' },
+                { id: 'getPosition', label: 'getPosition()' },
+                { id: 'setVoltage', label: 'setVoltage()' }
+            ],
+            'TalonSRX': [
+                { id: 'setSpeed', label: 'setSpeed(%)' },
+                { id: 'stop', label: 'stop()' },
+                { id: 'setVoltage', label: 'setVoltage()' }
+            ],
+            'VictorSPX': [
+                { id: 'setSpeed', label: 'setSpeed(%)' },
+                { id: 'stop', label: 'stop()' },
+                { id: 'setVoltage', label: 'setVoltage()' }
+            ],
+            'CANcoder': [
+                { id: 'getPosition', label: 'getPosition()' },
+                { id: 'getVelocity', label: 'getVelocity()' },
+                { id: 'reset', label: 'reset()' },
+                { id: 'getAbsPosition', label: 'getAbsPosition()' },
+                { id: 'getVoltage', label: 'getSupplyVoltage()' },
+                { id: 'getTemp', label: 'getTemp()' },
+                { id: 'get', label: 'get()' }
+            ],
+            'Pigeon 2.0': [
+                { id: 'getYaw', label: 'getYaw()' },
+                { id: 'getPitch', label: 'getPitch()' },
+                { id: 'getRoll', label: 'getRoll()' },
+                { id: 'reset', label: 'reset()' },
+                { id: 'getRate', label: 'getRate()' },
+                { id: 'setYaw', label: 'setYaw()' }
+            ],
+            'NavX2 MXP': [
+                { id: 'getYaw', label: 'getYaw()' },
+                { id: 'reset', label: 'reset()' },
+                { id: 'getRate', label: 'getRate()' },
+                { id: 'getAngle', label: 'getAngle()' }
+            ],
+            'NavX2-Micro': [
+                { id: 'getYaw', label: 'getYaw()' },
+                { id: 'reset', label: 'reset()' },
+                { id: 'getRate', label: 'getRate()' },
+                { id: 'getAngle', label: 'getAngle()' }
+            ],
+            'Through Bore Encoder': [{ id: 'getAbsolute', label: 'getAbsolute()' }],
+            'DoubleSolenoid': [
+                { id: 'toggle', label: 'toggle()' },
+                { id: 'extend', label: 'extend()' },
+                { id: 'retract', label: 'retract()' },
+                { id: 'get', label: 'get()' },
+                { id: 'isExtended', label: 'isExtended()' },
+                { id: 'isRetracted', label: 'isRetracted()' }
+            ],
+            'Solenoid': [
+                { id: 'toggle', label: 'toggle()' },
+                { id: 'set', label: 'set(bool)' },
+                { id: 'get', label: 'get()' }
+            ],
+            'Servo': [
+                { id: 'setPosition', label: 'setPosition()' },
+                { id: 'getAngle', label: 'getAngle()' },
+                { id: 'setAngle', label: 'setAngle()' },
+                { id: 'getPosition', label: 'getPosition()' }
+            ]
+        };
+
         const deviceTypes = [
             // --- Motor Controllers & Motors ---
             {
@@ -501,7 +604,9 @@
                 import: 'com.ctre.phoenix6.hardware.TalonFX',
                 requiredVendor: 'Phoenix6',
                 vendorUrl: 'https://v6.docs.ctr-electronics.com/en/stable/docs/installation/index.html',
-                image: 'media/field.png'
+                image: 'media/field.png',
+                needsController: true,
+                validControllers: ['TalonFX']
             },
             {
                 name: 'Kraken X44',
@@ -510,7 +615,9 @@
                 import: 'com.ctre.phoenix6.hardware.TalonFX',
                 requiredVendor: 'Phoenix6',
                 vendorUrl: 'https://v6.docs.ctr-electronics.com/en/stable/docs/installation/index.html',
-                image: 'media/talonfx.png'
+                image: 'media/talonfx.png',
+                needsController: true,
+                validControllers: ['TalonFX']
             },
             {
                 name: 'NEO Vortex',
@@ -521,7 +628,7 @@
                 vendorUrl: 'https://docs.revrobotics.com/brushless/spark-flex/software-resources',
                 image: 'media/sparkflex.png',
                 needsController: true,
-                validControllers: ['SparkFlex', 'SPARK MAX']
+                validControllers: ['SparkFlex']
             },
             {
                 name: 'CTR Minion',
@@ -535,16 +642,39 @@
                 validControllers: ['TalonFXS']
             },
             {
-                name: 'Core Hex Motor',
+                name: 'NEO 550 Brushless Motor',
                 category: 'Motors',
-                description: 'Smart Motor (Requires ext. Controller)',
-                import: 'com.revrobotics.CANSparkMax',
+                description: 'Brushless Motor (Requires ext. Brushless Controller)',
+                import: 'com.revrobotics.SparkMax',
                 requiredVendor: 'REVLib',
                 vendorUrl: 'https://docs.revrobotics.com/',
                 image: 'media/sparkmax.png',
                 needsController: true,
-                validControllers: ['CANSparkMax', 'SPARK MAX', 'TalonSRX', 'VictorSPX']
+                validControllers: ['SparkMax']
             },
+            {
+                name: 'NEO Brushless Motor V1.1',
+                category: 'Motors',
+                description: 'Brushless Motor (Requires ext. Brushless Controller)',
+                import: 'com.revrobotics.SparkMax',
+                requiredVendor: 'REVLib',
+                vendorUrl: 'https://docs.revrobotics.com/',
+                image: 'media/sparkmax.png',
+                needsController: true,
+                validControllers: ['SparkMax']
+            },
+            {
+                name: 'NEO 2.0 Brushless Motor',
+                category: 'Motors',
+                description: 'Brushless Motor (Requires ext. Brushless Controller)',
+                import: 'com.revrobotics.SparkMax',
+                requiredVendor: 'REVLib',
+                vendorUrl: 'https://docs.revrobotics.com/',
+                image: 'media/sparkmax.png',
+                needsController: true,
+                validControllers: ['SparkMax', 'SparkFlex']
+            },
+
             // --- Controllers ---
             {
                 name: 'TalonFX',
@@ -565,7 +695,7 @@
                 image: 'media/talonfxs.png'
             },
             {
-                name: 'SPARK MAX',
+                name: 'SparkMax',
                 category: 'Motor Controllers',
                 description: 'Controller for NEO/CIM/775',
                 import: 'com.revrobotics.spark.SparkMax',
@@ -892,27 +1022,25 @@
                 const row = document.createElement('tr');
 
                 // --- Helper Methods Check ---
-                // If it has a controller, helper methods generally belong to the controller class
+                // Use DEVICE_HELPERS for dynamic generation
                 let targetType = device.controller ? device.controller.type : device.type;
                 let helpersHtml = '';
 
-                // Allow helpers for certain standalone types OR consistent controller types
-                if (['TalonFX', 'SparkFlex', 'TalonFXS', 'SPARK MAX', 'Kraken X60'].includes(targetType)) {
-                    helpersHtml = `
-                        <div style="display:flex; flex-direction:column; gap:4px; font-size:0.85em;">
-                            <label><input type="checkbox" onchange="toggleHelper(${index}, 'getVelocity', this.checked)" ${device.helperMethods?.includes('getVelocity') ? 'checked' : ''}> getVelocity()</label>
-                            <label><input type="checkbox" onchange="toggleHelper(${index}, 'getPosition', this.checked)" ${device.helperMethods?.includes('getPosition') ? 'checked' : ''}> getPosition()</label>
-                        </div>
-                    `;
-                } else if (targetType === 'CANcoder' || targetType === 'Pigeon 2.0') {
-                    const method = targetType === 'Pigeon 2.0' ? 'getYaw' : 'getPosition';
-                    helpersHtml = `
-                        <label style="font-size:0.85em;"><input type="checkbox" onchange="toggleHelper(${index}, '${method}', this.checked)" ${device.helperMethods?.includes(method) ? 'checked' : ''}> ${method}()</label>
-                    `;
-                } else if (targetType.includes('Solenoid')) {
-                    helpersHtml = `
-                        <label style="font-size:0.85em;"><input type="checkbox" onchange="toggleHelper(${index}, 'toggle', this.checked)" ${device.helperMethods?.includes('toggle') ? 'checked' : ''}> toggle()</label>
-                    `;
+                const availableHelpers = DEVICE_HELPERS[targetType];
+                if (availableHelpers) {
+                    helpersHtml = `<div style="display:flex; flex-direction:column; gap:4px; font-size:0.85em;">`;
+                    if (availableHelpers.length > 3) {
+                        // Use a scrollable area if too many
+                        helpersHtml = `<div style="display:flex; flex-direction:column; gap:4px; font-size:0.85em; max-height:80px; overflow-y:auto; border:1px solid #333; padding:4px;">`;
+                    }
+
+                    availableHelpers.forEach(h => {
+                        const isChecked = device.helperMethods?.includes(h.id) ? 'checked' : '';
+                        helpersHtml += `<label style="white-space:nowrap;"><input type="checkbox" class="helper-method-checkbox" value="${h.id}" onchange="toggleHelper(${index}, '${h.id}', this.checked)" ${isChecked}> ${h.label}</label>`;
+                    });
+                    helpersHtml += `</div>`;
+                } else {
+                    helpersHtml = `<span style="opacity:0.5; font-size:0.8em">None available</span>`;
                 }
 
                 // --- Nested Controller Logic ---
@@ -1078,7 +1206,8 @@
                         name: nameInput.value,
                         id: idInput ? idInput.value : '',
                         bus: busInput ? busInput.value : 'rio',
-                        helperMethods: helperMethods
+                        helperMethods: helperMethods,
+                        controller: devices[index].controller
                     });
                 }
             });
@@ -1127,6 +1256,18 @@
 
         document.getElementById('yamgBtn').addEventListener('click', () => {
             vscode.postMessage({ command: 'openYAMG' });
+        });
+
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            vscode.postMessage({ command: 'refresh' });
+            // Add a little animation or feedback
+            const btn = document.getElementById('refreshBtn');
+            btn.style.transform = 'rotate(360deg)';
+            btn.style.transition = 'transform 0.5s';
+            setTimeout(() => {
+                btn.style.transform = 'none';
+                btn.style.transition = 'none';
+            }, 500);
         });
 
         renderDeviceTypes();

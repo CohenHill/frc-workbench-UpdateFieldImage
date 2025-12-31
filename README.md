@@ -24,6 +24,8 @@ Generate robust, modern WPILib subsystems in seconds.
 *   **Helper Methods**: Automatically generate common methods like `getVelocity()`, `setPosition()`, or `resetEncoder()`.
 *   **State Machines**: Define enum-based states (e.g., `IDLE`, `INTAKING`, `SHOOTING`) and generate the state machine skeleton.
 *   **Profiled PID**: Built-in support for `ProfiledPIDController` with Feedforward (Simple, Elevator, Arm) and Trapezoidal profiles.
+*   **Tunable PID**: Generate subsystems using the `TuneableProfiledPIDController` to adjust kP, kI, kD, and Feedforward gains live via Shuffleboard/SmartDashboard.
+*   **YAMS Integration**: Directly access the YAMS Hub to generate complex mechanisms (Elevators, Arms) with full simulation support.
 
 ### 📦 Vendor Library Manager
 *   **Smart Detection**: Automatically detects missing vendor libraries (CTRE Phoenix 6, REVLib, ReduxLib, NavX) based on your imports.
@@ -61,7 +63,10 @@ Generate robust, modern WPILib subsystems in seconds.
 *   **New**: Dynamic PID Tuner with support for Feedforward (kS, kV, kA, kG) and generic numeric fields.
 *   **New**: PathPlanner Preview with Playback controls and Curvature "Stress" visualization.
 *   **New**: Enhanced Subsystem Creator with State Machine generation and Helper Methods.
-*   **New**: YAMS/YAMG Integration: Launch the YAMG mechanism generator directly from the wizard (auto-checks for YAMS library).
+*   **New**: YAMS Integration Hub: A complete mechanism generator UI built into VS Code.
+    *   **Mechanism Library**: Auto-fetch latest templates for Elevators, Arms, and Pivots from YamGen.
+    *   **Control Modes**: Choose between Motor Controller PID, WPILib ProfiledPID, or the new **Tunable PID** (Shuffleboard-tunable).
+    *   **Sim Integration**: Seamlessly generates `SubsystemSim` files for Physics simulation.
 *   **New**: Vendor Library presence checks (ReduxLib, NavX, CTRE, REV).
 *   **Improved**: Context Menu organization.
 

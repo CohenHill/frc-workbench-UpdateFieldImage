@@ -27,6 +27,11 @@ function generateSubsystemCode(data) {
   const { imports, declarations, initializers, helperMethods, constantDefinitions: hwConstants } = generateHardwareCode(hardware || [], className, saveConstants, constantsClassName);
   const collectedConstants = [...(hwConstants || [])];
 
+  // Add Constants import if used
+  if (saveConstants) {
+    imports.add(`frc.robot.${constantsClassName}`);
+  }
+
   // Base specific logic
   const isPidSubsystem = subsystemType === 'pid';
   let extendsClause = `extends ${baseClass || 'SubsystemBase'}`;
@@ -54,7 +59,6 @@ function generateSubsystemCode(data) {
     let pVal = kP, iVal = kI, dVal = kD, sVal = kS, vVal = kV, aVal = kA, gVal = kG, velVal = maxVel, accVal = maxAcc;
 
     if (saveConstants) {
-      imports.add('frc.robot.RobotMap');
       const constClass = `${constantsClassName}.${className}Constants`;
       pVal = `${constClass}.kP`;
       iVal = `${constClass}.kI`;
