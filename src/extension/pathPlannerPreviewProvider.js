@@ -30,13 +30,6 @@ class PathPlannerPreviewProvider {
             });
         };
 
-        // Hook up event listeners so that we can sync the webview with the text document.
-        //
-        // The text document acts as our model, so we have to sync change in the document to our
-        // editor and sync changes in the editor back to the document.
-        // 
-        // Remember that a single text document can also be shared between multiple custom
-        // editors (this happens for example when you split a custom editor)
 
         const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(e => {
             if (e.document.uri.toString() === document.uri.toString()) {
@@ -65,7 +58,7 @@ class PathPlannerPreviewProvider {
     getHtmlForWebview(webview) {
         const htmlPath = path.join(this.context.extensionPath, 'src', 'webviews', 'pathPlannerPreview.html');
         let htmlContent = fs.readFileSync(htmlPath, 'utf8');
-        
+
         // Get path to the field image
         const fieldImagePath = vscode.Uri.file(
             path.join(this.context.extensionPath, 'src', 'webviews', 'media', 'field.png')
@@ -74,7 +67,7 @@ class PathPlannerPreviewProvider {
 
         // Replace placeholder in HTML with actual URI
         htmlContent = htmlContent.replace('${fieldImageUri}', fieldImageUri.toString());
-        
+
         return htmlContent;
     }
 }

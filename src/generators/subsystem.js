@@ -1,4 +1,4 @@
-const { generateHardwareCode, checkVendordeps } = require('./hardware');
+const { generateHardwareCode } = require('./hardware');
 
 /**
  * Generates the full Java code for a subsystem.
@@ -27,11 +27,15 @@ function generateSubsystemCode(data) {
   const { imports, declarations, initializers, helperMethods, constantDefinitions: hwConstants } = generateHardwareCode(hardware || [], className, saveConstants, constantsClassName);
   const collectedConstants = [...(hwConstants || [])];
 
+  // Add Constants import if used
+  if (saveConstants) {
+    imports.add(`frc.robot.${constantsClassName}`);
+  }
+
   // Base specific logic
   const isPidSubsystem = subsystemType === 'pid';
   let extendsClause = `extends ${baseClass || 'SubsystemBase'}`;
   let constructorBody = '';
-  let additionalMethods = [];
 
   if (!isPidSubsystem) {
     if (baseClass === 'SubsystemBase' || !baseClass) {
@@ -79,60 +83,71 @@ function generateSubsystemCode(data) {
 
     // Determine FF Type Enum string
     let ffTypeStr = 'TuneablePIDController.FeedforwardType.STATIC';
-    if (pidConfig.isProfiled) {
+    if (pidConfig.isProfiled && !pidConfig.useTuneable) {
+      // Only use Profiled controller enum if NOT using new Tuneable subsystem
       ffTypeStr = 'TuneableProfiledPIDController.FeedforwardType.STATIC';
       if (strategy === 'elevator') ffTypeStr = 'TuneableProfiledPIDController.FeedforwardType.ELEVATOR';
       else if (strategy === 'arm') ffTypeStr = 'TuneableProfiledPIDController.FeedforwardType.ARM';
     } else {
+      // Use Standard TuneablePIDController enum
       if (strategy === 'elevator') ffTypeStr = 'TuneablePIDController.FeedforwardType.ELEVATOR';
       else if (strategy === 'arm') ffTypeStr = 'TuneablePIDController.FeedforwardType.ARM';
     }
 
-    if (pidConfig.isProfiled) {
-      // --- PROFILED PID ---
+    if (pidConfig.useTuneable) {
+      // --- TUNEABLE PID SUBSYSTEM ---
+      extendsClause = 'extends TuneablePIDSubsystem';
+      imports.add('frc.robot.lib.TuneablePIDSubsystem');
+      imports.add('frc.robot.lib.TuneablePIDController');
+
+      // Build the controller using the Builder pattern
+      let builderChain = `new TuneablePIDController.Builder("${subsystemName}PID")
+        .withP(${pVal}).withI(${iVal}).withD(${dVal})
+        .withS(${sVal}).withV(${vVal}).withA(${aVal}).withG(${gVal})
+        .withFeedforwardType(${ffTypeStr})`;
+
+      // Add output range if defined
+      if (pidConfig?.minOutput && pidConfig?.maxOutput) {
+        builderChain += `\n        .withOutputRange(${pidConfig.minOutput}, ${pidConfig.maxOutput})`;
+      }
+
+      builderChain += '\n        .build()';
+
+      constructorBody += `    super(${builderChain});\n`;
+
+      // Handle Profiling (TuneablePIDSubsystem handles this internally via setProfiled)
+      if (pidConfig.isProfiled) {
+        imports.add('edu.wpi.first.math.trajectory.TrapezoidProfile');
+        constructorBody += `    setProfiled(new TrapezoidProfile.Constraints(${velVal}, ${accVal}));\n`;
+      }
+
+    } else if (pidConfig.isProfiled) {
+      // --- STANDARD PROFILED PID ---
       extendsClause = 'extends ProfiledPIDSubsystem';
       imports.add('edu.wpi.first.math.controller.ProfiledPIDController');
       imports.add('edu.wpi.first.math.trajectory.TrapezoidProfile');
       imports.add('edu.wpi.first.wpilibj2.command.ProfiledPIDSubsystem');
 
-      if (pidConfig && pidConfig.useTuneable) {
-        imports.add('frc.robot.lib.TuneableProfiledPIDController');
-        constructorBody += `    super(
-      new TuneableProfiledPIDController(
-        "${subsystemName}PID",
-        ${pVal}, ${iVal}, ${dVal},
-        ${sVal}, ${vVal}, ${aVal}, ${gVal}, ${ffTypeStr},
-        new TrapezoidProfile.Constraints(${velVal}, ${accVal})
-      )
-    );\n`;
-      } else {
-        constructorBody += `    super(
+      constructorBody += `    super(
       new ProfiledPIDController(
         ${pVal}, ${iVal}, ${dVal},
         new TrapezoidProfile.Constraints(${velVal}, ${accVal})
       )
     );\n`;
+
+      if (pidConfig?.minOutput && pidConfig?.maxOutput) {
+        constructorBody += `    getController().setIntegratorRange(${pidConfig.minOutput}, ${pidConfig.maxOutput});\n`;
       }
+
     } else {
       // --- STANDARD PID ---
       extendsClause = 'extends PIDSubsystem';
       imports.add('edu.wpi.first.math.controller.PIDController');
       imports.add('edu.wpi.first.wpilibj2.command.PIDSubsystem');
 
-      if (pidConfig && pidConfig.useTuneable) {
-        imports.add('frc.robot.lib.TuneablePIDController');
-        // Standard: new TuneablePIDController(name, P, I, D, S, V, A, G, Type)
-        constructorBody += `    super(new TuneablePIDController("${subsystemName}PID", ${pVal}, ${iVal}, ${dVal}, ${sVal}, ${vVal}, ${aVal}, ${gVal}, ${ffTypeStr}));\n`;
-      } else {
-        constructorBody += `    super(new PIDController(${pVal}, ${iVal}, ${dVal}));\n`;
-      }
-    }
+      constructorBody += `    super(new PIDController(${pVal}, ${iVal}, ${dVal}));\n`;
 
-    // Output Range (Common for both if wrapper supports it or we use getController())
-    if (pidConfig?.minOutput && pidConfig?.maxOutput) {
-      if (pidConfig.useTuneable) {
-        constructorBody += `    ((Tuneable${pidConfig.isProfiled ? 'Profiled' : ''}PIDController)getController()).setOutputRange(${pidConfig.minOutput}, ${pidConfig.maxOutput});\n`;
-      } else {
+      if (pidConfig?.minOutput && pidConfig?.maxOutput) {
         constructorBody += `    getController().setIntegratorRange(${pidConfig.minOutput}, ${pidConfig.maxOutput});\n`;
       }
     }
@@ -194,16 +209,17 @@ ${constructorBody}
   @Override
   public void periodic() {
     // This method will be called once per scheduler run
+    super.periodic();
   }
 
 ${isPidSubsystem ? `
   @Override
-  protected void useOutput(double output, ${pidConfig?.isProfiled ? 'TrapezoidProfile.State' : 'double'} setpoint) {
+  public void useOutput(double output, ${pidConfig?.isProfiled && !pidConfig?.useTuneable ? 'TrapezoidProfile.State' : 'double'} setpoint) {
     // Use the output here
   }
 
   @Override
-  protected double getMeasurement() {
+  public double getMeasurement() {
     // Return the process variable measurement here
     return 0;
   }` : ''}
