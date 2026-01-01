@@ -885,7 +885,7 @@ function toggleFormSections() {
 // ==========================================
 
 let currentWizardStep = 1;
-const totalWizardSteps = 5;
+const totalWizardSteps = 10;
 
 window.nextWizardStep = () => {
     if (currentWizardStep < totalWizardSteps) {
@@ -912,6 +912,11 @@ function goToWizardStep(stepNum) {
         }
     });
 
+    // Update Visibility for Mechanism Config
+    if (stepNum === 9 && typeof window.updateMechVisibility === 'function') {
+        window.updateMechVisibility();
+    }
+
     // Update step indicators
     // @ts-ignore
     const steps = document.querySelectorAll('.wizard-step');
@@ -922,17 +927,6 @@ function goToWizardStep(stepNum) {
             step.classList.add('active');
         } else if (sNum < stepNum) {
             step.classList.add('completed');
-        }
-    });
-
-    // Update connectors
-    // @ts-ignore
-    const connectors = document.querySelectorAll('.wizard-step-connector');
-    connectors.forEach((conn, index) => {
-        if (index < stepNum - 1) {
-            conn.classList.add('completed');
-        } else {
-            conn.classList.remove('completed');
         }
     });
 
@@ -956,23 +950,69 @@ function goToWizardStep(stepNum) {
         }
     }
 
+    if (stepNum === 10) {
+        // Populate Review Page
+        // @ts-ignore
+        const name = document.getElementById('yamsSubsystemName').value || 'Untitled';
+        // @ts-ignore
+        const type = document.getElementById('yamsMechType').value;
+        // @ts-ignore
+        const motor = document.getElementById('yamsMotorType').value;
+        // @ts-ignore
+        const limit = document.getElementById('yamsSupplyLimit').value;
+        // @ts-ignore
+        const loop = document.getElementById('yamsControlLoop').value;
+        // @ts-ignore
+        const profile = document.getElementById('yamsProfileType').value;
+        // @ts-ignore
+        const sensor = document.getElementById('yamsSensorType').value;
+
+        // @ts-ignore
+        document.getElementById('reviewName').textContent = name;
+        // @ts-ignore
+        document.getElementById('reviewType').textContent = type;
+        // @ts-ignore
+        document.getElementById('reviewMotor').textContent = `${motor} (${limit}A)`;
+        // @ts-ignore
+        document.getElementById('reviewControl').textContent = `${loop} + ${profile}`;
+        // @ts-ignore
+        document.getElementById('reviewSensor').textContent = sensor;
+    }
+
     if (stepIndicator) stepIndicator.textContent = String(stepNum);
 }
 
 // Allow clicking on step indicators to navigate
 // @ts-ignore
-document.addEventListener('DOMContentLoaded', () => {
+// event delegation for wizard navigation
+// @ts-ignore
+document.addEventListener('click', (e) => {
     // @ts-ignore
-    const steps = document.querySelectorAll('.wizard-step');
-    steps.forEach(step => {
-        step.addEventListener('click', () => {
-            const stepNum = parseInt(step.getAttribute('data-step'));
-            // Only allow clicking if step is completed or current
-            if (stepNum <= currentWizardStep) {
-                goToWizardStep(stepNum);
-            }
-        });
-    });
+    const target = e.target;
+
+    // Safety check for text nodes and non-elements
+    // @ts-ignore
+    if (!target || typeof target.closest !== 'function') return;
+
+    // Next Button
+    if (target.closest('.wizard-btn-next')) {
+        window.nextWizardStep();
+    }
+
+    // Prev Button
+    if (target.closest('.wizard-btn-prev')) {
+        window.prevWizardStep();
+    }
+
+    // Step Indicators
+    const step = target.closest('.wizard-step');
+    if (step) {
+        const stepNum = parseInt(step.getAttribute('data-step') || '1');
+        // Only allow clicking if step is completed or current
+        if (stepNum <= currentWizardStep) {
+            goToWizardStep(stepNum);
+        }
+    }
 });
 
 window.scrollCarousel = (direction) => {
@@ -1176,3 +1216,233 @@ document.getElementById('refreshBtn').addEventListener('click', () => {
 
 renderDeviceTypes();
 renderDevices();
+
+// --- YAMS Wizard Helper Functions ---
+
+window.updateCurrentDefaults = () => {
+    // @ts-ignore
+    const type = document.getElementById('yamsMotorType').value;
+    // @ts-ignore
+    const supply = document.getElementById('yamsSupplyLimit');
+    // @ts-ignore
+    const stator = document.getElementById('yamsStatorLimit');
+
+    if (type === 'NEO550') {
+        supply.value = '25';
+        stator.value = '40';
+    } else if (type === 'NEO') {
+        supply.value = '40';
+        stator.value = '80';
+    } else if (type === 'Kraken X60') {
+        supply.value = '60';
+        stator.value = '100';
+    } else if (type === 'CIM') {
+        supply.value = '30';
+        stator.value = '60';
+    } else {
+        // Defaults for Talon FX/Vortex
+        supply.value = '40';
+        stator.value = '80';
+    }
+};
+
+window.updateSensorFields = () => {
+    // @ts-ignore
+    const type = document.getElementById('yamsSensorType').value;
+    // @ts-ignore
+    const absOptions = document.getElementById('absoluteOptions');
+    // @ts-ignore
+    const startPos = document.getElementById('startPosField');
+
+    if (type === 'Internal') {
+        absOptions.style.display = 'none';
+        startPos.style.display = 'block';
+    } else {
+        absOptions.style.display = 'block';
+        // Check zero offset state to decide on start pos
+        window.toggleStartPos();
+    }
+};
+
+window.toggleStartPos = () => {
+    // @ts-ignore
+    const hasOffset = document.getElementById('yamsHasZeroOffset').checked;
+    // @ts-ignore
+    const startPos = document.getElementById('startPosField');
+    // @ts-ignore
+    const offsetField = document.getElementById('offsetField');
+
+    if (hasOffset) {
+        startPos.style.display = 'none';
+        offsetField.style.display = 'block';
+    } else {
+        startPos.style.display = 'block';
+        offsetField.style.display = 'none';
+    }
+};
+
+window.updateProfileFields = () => {
+    // @ts-ignore
+    const loop = document.getElementById('yamsControlLoop').value;
+    // @ts-ignore
+    const pidSection = document.getElementById('pidSection');
+
+    if (loop === 'OpenLoop') {
+        pidSection.style.display = 'none';
+    } else {
+        pidSection.style.display = 'block';
+    }
+};
+
+/* ==========================================
+   DRAG AND DROP FOR PAGE 2
+   ========================================== */
+
+const motorDropZone = document.getElementById('motorDropZone');
+const controllerDropZone = document.getElementById('controllerDropZone');
+
+if (motorDropZone) {
+    motorDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        motorDropZone.classList.add('drag-over');
+    });
+    motorDropZone.addEventListener('dragleave', () => {
+        motorDropZone.classList.remove('drag-over');
+    });
+    motorDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        motorDropZone.classList.remove('drag-over');
+        const deviceName = e.dataTransfer.getData('text/plain');
+        handleMotorDrop(deviceName);
+    });
+}
+
+if (controllerDropZone) {
+    controllerDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        controllerDropZone.classList.add('drag-over');
+    });
+    controllerDropZone.addEventListener('dragleave', () => {
+        controllerDropZone.classList.remove('drag-over');
+    });
+    controllerDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        controllerDropZone.classList.remove('drag-over');
+        const deviceName = e.dataTransfer.getData('text/plain');
+        handleControllerDrop(deviceName);
+    });
+}
+
+function handleMotorDrop(deviceName) {
+    const select = document.getElementById('yamsMotorType');
+    if (!select) return;
+
+    let valueToSelect = null;
+    if (deviceName.includes('Kraken')) valueToSelect = 'Kraken X60';
+    else if (deviceName.includes('Talon FX')) valueToSelect = 'Talon FX';
+    else if (deviceName.includes('Vortex')) valueToSelect = 'Vortex';
+    else if (deviceName === 'NEO') valueToSelect = 'NEO';
+    else if (deviceName.includes('NEO 550')) valueToSelect = 'NEO550';
+    else if (deviceName === 'CIM') valueToSelect = 'CIM';
+    else if (deviceName === 'Mini CIM') valueToSelect = 'MiniCIM';
+    else if (deviceName.includes('Bag')) valueToSelect = 'Bag';
+    else if (deviceName === '775pro') valueToSelect = '775pro';
+
+    if (valueToSelect) {
+        select.value = valueToSelect;
+        if (typeof window.applyCurrentDefaults === 'function') {
+            window.applyCurrentDefaults();
+        }
+        updateDropZoneUI('motorDropZone', deviceName);
+    }
+}
+
+function handleControllerDrop(deviceName) {
+    const select = document.getElementById('yamsController');
+    if (!select) return;
+
+    let valueToSelect = null;
+    if (deviceName.includes('TalonFX')) valueToSelect = 'TalonFX';
+    else if (deviceName.includes('Spark Max')) valueToSelect = 'SparkMax';
+    else if (deviceName.includes('Spark Flex')) valueToSelect = 'SparkFlex';
+    else if (deviceName.includes('Talon SRX')) valueToSelect = 'TalonSRX';
+    else if (deviceName.includes('Victor SPX')) valueToSelect = 'VictorSPX';
+
+    if (valueToSelect) {
+        select.value = valueToSelect;
+        updateDropZoneUI('controllerDropZone', deviceName);
+    }
+}
+
+function updateDropZoneUI(zoneId, name) {
+    const zone = document.getElementById(zoneId);
+    if (!zone) return;
+
+    const placeholder = zone.querySelector('.placeholder-content');
+    const dropped = zone.querySelector('.dropped-content');
+    const nameSpan = zone.querySelector('.dropped-name');
+    const img = zone.querySelector('.dropped-icon');
+
+    if (placeholder && dropped && nameSpan) {
+        placeholder.style.display = 'none';
+        dropped.style.display = 'flex';
+        nameSpan.textContent = name;
+        if (img) img.style.display = 'none';
+    }
+}
+
+window.resetMotorDrop = (e) => {
+    e.stopPropagation();
+    resetDropZone('motorDropZone');
+    const select = document.getElementById('yamsMotorType');
+    if (select) select.selectedIndex = 0;
+};
+
+window.resetControllerDrop = (e) => {
+    e.stopPropagation();
+    resetDropZone('controllerDropZone');
+    const select = document.getElementById('yamsController');
+    if (select) select.selectedIndex = 0;
+};
+
+function resetDropZone(zoneId) {
+    const zone = document.getElementById(zoneId);
+    if (!zone) return;
+    const placeholder = zone.querySelector('.placeholder-content');
+    const dropped = zone.querySelector('.dropped-content');
+    if (placeholder && dropped) {
+        placeholder.style.display = 'block';
+        dropped.style.display = 'none';
+    }
+}
+
+// Update Mechanism Visibility
+window.updateMechVisibility = () => {
+    // @ts-ignore
+    const mechType = document.getElementById('yamsMechType') ? document.getElementById('yamsMechType').value : 'Simple';
+    const armConfig = document.getElementById('armConfig');
+    const elevatorConfig = document.getElementById('elevatorConfig');
+    const flywheelConfig = document.getElementById('flywheelConfig');
+    const genericConfig = document.getElementById('genericConfig');
+
+    // Reset all
+    if (armConfig) armConfig.style.display = 'none';
+    if (elevatorConfig) elevatorConfig.style.display = 'none';
+    if (flywheelConfig) flywheelConfig.style.display = 'none';
+    if (genericConfig) genericConfig.style.display = 'none';
+
+    if (mechType === 'Arm') {
+        if (armConfig) armConfig.style.display = 'block';
+    } else if (mechType === 'Elevator') {
+        if (elevatorConfig) elevatorConfig.style.display = 'block';
+    } else if (mechType === 'Flywheel') {
+        if (flywheelConfig) flywheelConfig.style.display = 'block';
+    } else {
+        if (genericConfig) genericConfig.style.display = 'block';
+    }
+};
+
+// Initialize Guardrails (if module loaded)
+if (typeof window.initGuardrails === 'function') {
+    window.initGuardrails();
+}

@@ -136,105 +136,413 @@
 
         <!-- YAMS Wizard (only shown when YAMS is selected) -->
         <div id="yams-wizard" class="yams-wizard" style="display: none;">
-            <!-- Step Indicators -->
+            <!-- Step Indicators (10 steps, compact) -->
             <div class="wizard-header">
                 <div class="wizard-steps">
                     <div class="wizard-step active" data-step="1">
                         <div class="step-number">1</div>
-                        <div class="step-label">Basics</div>
                     </div>
-                    <div class="wizard-step-connector"></div>
                     <div class="wizard-step" data-step="2">
                         <div class="step-number">2</div>
-                        <div class="step-label">Motors</div>
                     </div>
-                    <div class="wizard-step-connector"></div>
                     <div class="wizard-step" data-step="3">
                         <div class="step-number">3</div>
-                        <div class="step-label">Control</div>
                     </div>
-                    <div class="wizard-step-connector"></div>
                     <div class="wizard-step" data-step="4">
                         <div class="step-number">4</div>
-                        <div class="step-label">Sensors</div>
                     </div>
-                    <div class="wizard-step-connector"></div>
                     <div class="wizard-step" data-step="5">
                         <div class="step-number">5</div>
-                        <div class="step-label">Review</div>
+                    </div>
+                    <div class="wizard-step" data-step="6">
+                        <div class="step-number">6</div>
+                    </div>
+                    <div class="wizard-step" data-step="7">
+                        <div class="step-number">7</div>
+                    </div>
+                    <div class="wizard-step" data-step="8">
+                        <div class="step-number">8</div>
+                    </div>
+                    <div class="wizard-step" data-step="9">
+                        <div class="step-number">9</div>
+                    </div>
+                    <div class="wizard-step" data-step="10">
+                        <div class="step-number">10</div>
                     </div>
                 </div>
             </div>
 
             <!-- Wizard Pages Container -->
             <div class="wizard-content">
-                <!-- Page 1: Basics -->
+                <!-- Page 1: Subsystem Details -->
                 <div class="wizard-page active" data-page="1">
                     <div class="wizard-page-header">
-                        <h2>🚀 Basic Configuration</h2>
-                        <p class="wizard-page-desc">Set up the fundamental properties of your YAMS mechanism.</p>
+                        <h2>📝 Subsystem Details</h2>
+                        <p class="wizard-page-desc">Name and telemetry configuration.</p>
                     </div>
                     <div class="wizard-page-body">
-                        <!-- Placeholder content -->
-                        <div class="wizard-placeholder">
-                            <span class="placeholder-icon">⚙️</span>
-                            <span class="placeholder-text">Basic configuration options will appear here</span>
+                        <div class="form-row">
+                            <label>Subsystem Name</label>
+                            <input type="text" id="yamsSubsystemName" placeholder="e.g., Arm, Elevator"
+                                class="wizard-input">
+                        </div>
+                        <div class="form-row" style="margin-top: 15px;">
+                            <label>Telemetry Name</label>
+                            <input type="text" id="yamsTelemetryName" placeholder="Same as subsystem name"
+                                class="wizard-input">
+                        </div>
+                        <div class="form-row" style="margin-top: 15px;">
+                            <label>Telemetry Verbosity</label>
+                            <select id="yamsVerbosity" class="wizard-input">
+                                <option value="LOW">Low</option>
+                                <option value="HIGH" selected>High</option>
+                                <option value="COMPLETE">Complete</option>
+                            </select>
                         </div>
                     </div>
                 </div>
 
-                <!-- Page 2: Motors -->
+                <!-- Page 2: Motor Configuration -->
                 <div class="wizard-page" data-page="2">
                     <div class="wizard-page-header">
                         <h2>🔌 Motor Configuration</h2>
-                        <p class="wizard-page-desc">Configure your motors and their properties.</p>
+                        <p class="wizard-page-desc">Select motor type and controller.</p>
                     </div>
                     <div class="wizard-page-body">
-                        <div class="wizard-placeholder">
-                            <span class="placeholder-icon">⚡</span>
-                            <span class="placeholder-text">Motor configuration options will appear here</span>
+                        <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                            <!-- Motor Drop Zone -->
+                            <div style="flex: 1;">
+                                <label style="display:block; margin-bottom:8px;">Motor Type</label>
+                                <div id="motorDropZone" class="drop-zone"
+                                    style="min-height: 140px; border-radius: 12px; cursor: pointer; justify-content: center; gap: 10px;">
+                                    <div class="placeholder-content" style="text-align: center;">
+                                        <div style="font-size: 24px;">⚡</div>
+                                        <div class="placeholder-text" style="margin-top: 5px;">Drag Motor Here</div>
+                                    </div>
+                                    <div class="dropped-content"
+                                        style="display: none; flex-direction: column; align-items: center; gap: 8px;">
+                                        <img src="" class="dropped-icon"
+                                            style="width: 48px; height: 48px; object-fit: contain;">
+                                        <span class="dropped-name" style="font-weight: 600; font-size: 1.1em;"></span>
+                                        <button class="btn btn-secondary" onclick="resetMotorDrop(event)"
+                                            style="margin-top: 5px; padding: 4px 10px; font-size: 0.8em;">Change</button>
+                                    </div>
+                                </div>
+                                <!-- Hidden Select for Logic Compatibility -->
+                                <select id="yamsMotorType" class="wizard-input" style="display: none;"
+                                    onchange="window.applyCurrentDefaults && window.applyCurrentDefaults()">
+                                    <option value="Kraken X60">Kraken X60</option>
+                                    <option value="Talon FX">Talon FX (Falcon 500)</option>
+                                    <option value="NEO">NEO 1.1</option>
+                                    <option value="Vortex">NEO Vortex</option>
+                                    <option value="NEO550">NEO 550</option>
+                                    <option value="CIM">CIM</option>
+                                    <option value="MiniCIM">Mini CIM</option>
+                                    <option value="Bag">Bag Motor</option>
+                                    <option value="775pro">775pro</option>
+                                </select>
+                            </div>
+
+                            <!-- Controller Drop Zone -->
+                            <div style="flex: 1;">
+                                <label style="display:block; margin-bottom:8px;">Motor Controller</label>
+                                <div id="controllerDropZone" class="drop-zone"
+                                    style="min-height: 140px; border-radius: 12px; cursor: pointer; justify-content: center; gap: 10px;">
+                                    <div class="placeholder-content" style="text-align: center;">
+                                        <div style="font-size: 24px;">🎮</div>
+                                        <div class="placeholder-text" style="margin-top: 5px;">Drag Controller Here
+                                        </div>
+                                    </div>
+                                    <div class="dropped-content"
+                                        style="display: none; flex-direction: column; align-items: center; gap: 8px;">
+                                        <img src="" class="dropped-icon"
+                                            style="width: 48px; height: 48px; object-fit: contain;">
+                                        <span class="dropped-name" style="font-weight: 600; font-size: 1.1em;"></span>
+                                        <button class="btn btn-secondary" onclick="resetControllerDrop(event)"
+                                            style="margin-top: 5px; padding: 4px 10px; font-size: 0.8em;">Change</button>
+                                    </div>
+                                </div>
+                                <!-- Hidden Select for Logic Compatibility -->
+                                <select id="yamsController" class="wizard-input" style="display: none;">
+                                    <option value="TalonFX">TalonFX (Phoenix 6)</option>
+                                    <option value="SparkMax">SparkMax (REVLib)</option>
+                                    <option value="SparkFlex">SparkFlex (REVLib)</option>
+                                    <option value="TalonSRX">TalonSRX</option>
+                                    <option value="VictorSPX">VictorSPX</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 15px; margin-top: 15px;">
+                            <div style="flex: 1;" class="form-row">
+                                <label>Follower Motor?</label>
+                                <select id="yamsHasFollower" class="wizard-input">
+                                    <option value="false">No Follower</option>
+                                    <option value="true">Has Follower</option>
+                                </select>
+                            </div>
+                            <div style="flex: 1;" class="form-row">
+                                <label>Follower Inverted?</label>
+                                <select id="yamsFollowerInverted" class="wizard-input">
+                                    <option value="false">Same Direction</option>
+                                    <option value="true">Inverted</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Page 3: Control -->
+                <!-- Page 3: Motor Version & Gearing -->
                 <div class="wizard-page" data-page="3">
                     <div class="wizard-page-header">
-                        <h2>🎮 Control System</h2>
-                        <p class="wizard-page-desc">Set up PID, feedforward, and motion profiles.</p>
+                        <h2>⚙️ Version & Gearing</h2>
+                        <p class="wizard-page-desc">Motor version and mechanical configuration.</p>
                     </div>
                     <div class="wizard-page-body">
-                        <div class="wizard-placeholder">
-                            <span class="placeholder-icon">📊</span>
-                            <span class="placeholder-text">Control system options will appear here</span>
+                        <div class="form-row">
+                            <label>Mechanism Type</label>
+                            <select id="yamsMechType" class="wizard-input"
+                                onchange="window.updateMechVisibility && window.updateMechVisibility()">
+                                <option value="Simple">Simple Motor</option>
+                                <option value="Arm">Single Jointed Arm</option>
+                                <option value="Elevator">Elevator</option>
+                                <option value="Flywheel">Flywheel</option>
+                            </select>
+                        </div>
+                        <div class="form-row" style="margin-top: 15px;">
+                            <label>Motor Version / Firmware Year</label>
+                            <select id="yamsMotorVersion" class="wizard-input">
+                                <option value="2025">2025</option>
+                                <option value="2024">2024</option>
+                                <option value="2023">2023</option>
+                            </select>
+                        </div>
+                        <div class="form-row" style="margin-top: 15px;">
+                            <label>Mechanism Gearing (Reduction Ratio)</label>
+                            <input type="text" id="yamsGearing" placeholder="e.g. 10.5" value="1.0"
+                                class="wizard-input">
+                            <span class="hint-text">Motor rotations per output rotation</span>
+                        </div>
+                        <div class="form-row" style="margin-top: 15px;">
+                            <label>Supply Current Limit (Amps)</label>
+                            <input type="number" id="yamsSupplyLimit" value="40" class="wizard-input">
                         </div>
                     </div>
                 </div>
 
-                <!-- Page 4: Sensors -->
+                <!-- Page 4: Control Mode & PID -->
                 <div class="wizard-page" data-page="4">
                     <div class="wizard-page-header">
-                        <h2>📡 Sensors & Feedback</h2>
-                        <p class="wizard-page-desc">Configure encoders, limit switches, and other sensors.</p>
+                        <h2>🎮 Control Mode & PID</h2>
+                        <p class="wizard-page-desc">Closed-loop or open-loop control.</p>
                     </div>
                     <div class="wizard-page-body">
-                        <div class="wizard-placeholder">
-                            <span class="placeholder-icon">🔍</span>
-                            <span class="placeholder-text">Sensor configuration options will appear here</span>
+                        <div class="form-row">
+                            <label>Control Mode</label>
+                            <select id="yamsControlLoop" class="wizard-input"
+                                onchange="window.enforceControlModeGuardrails && window.enforceControlModeGuardrails()">
+                                <option value="ClosedLoop">Closed Loop (PID)</option>
+                                <option value="OpenLoop">Open Loop (Voltage)</option>
+                            </select>
+                        </div>
+                        <div id="pidSection" style="margin-top: 20px;">
+                            <div class="form-section-title">PID Constants</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                                <div><label>kP</label><input type="text" id="yamsKp" class="wizard-input"></div>
+                                <div><label>kI</label><input type="text" id="yamsKi" class="wizard-input"></div>
+                                <div><label>kD</label><input type="text" id="yamsKd" class="wizard-input"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Page 5: Review -->
+                <!-- Page 5: FVGA & Motion Profiling -->
                 <div class="wizard-page" data-page="5">
                     <div class="wizard-page-header">
-                        <h2>✅ Review & Generate</h2>
-                        <p class="wizard-page-desc">Review your configuration and generate the code.</p>
+                        <h2>📊 Feedforward & Profiling</h2>
+                        <p class="wizard-page-desc">Feedforward gains and motion profile.</p>
                     </div>
                     <div class="wizard-page-body">
-                        <div class="wizard-placeholder">
-                            <span class="placeholder-icon">📋</span>
-                            <span class="placeholder-text">Configuration summary will appear here</span>
+                        <div class="form-section-title">Feedforward (FVGA)</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px;">
+                            <div><label>kS</label><input type="text" id="yamsKs" class="wizard-input"></div>
+                            <div><label>kV</label><input type="text" id="yamsKv" class="wizard-input"></div>
+                            <div><label>kG</label><input type="text" id="yamsKg" class="wizard-input"></div>
+                            <div><label>kA</label><input type="text" id="yamsKa" class="wizard-input"></div>
+                        </div>
+                        <div class="form-row" style="margin-top: 20px;">
+                            <label>Motion Profile</label>
+                            <select id="yamsProfileType" class="wizard-input">
+                                <option value="None">None</option>
+                                <option value="Trapezoidal">Trapezoidal</option>
+                                <option value="Exponential">Exponential</option>
+                            </select>
+                        </div>
+                        <div id="trapFields" style="display: none; margin-top: 15px;">
+                            <div style="display: flex; gap: 15px;">
+                                <div style="flex:1"><label>Max Velocity</label><input type="text" id="yamsMaxVel"
+                                        class="wizard-input"></div>
+                                <div style="flex:1"><label>Max Acceleration</label><input type="text" id="yamsMaxAccel"
+                                        class="wizard-input"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 6: Mechanism Selection -->
+                <div class="wizard-page" data-page="6">
+                    <div class="wizard-page-header">
+                        <h2>🦾 Mechanism Selection</h2>
+                        <p class="wizard-page-desc">Select the mechanism type.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div class="form-row">
+                            <label>Mechanism Type</label>
+                            <select id="yamsMechType" class="wizard-input"
+                                onchange="window.enforceMechanismGuardrails && window.enforceMechanismGuardrails()">
+                                <option value="Generic">Generic</option>
+                                <option value="Arm">Arm (Rotational)</option>
+                                <option value="Elevator">Elevator (Linear)</option>
+                                <option value="Flywheel">Flywheel (Velocity)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 7: Starting Position -->
+                <div class="wizard-page" data-page="7">
+                    <div class="wizard-page-header">
+                        <h2>📍 Starting Position</h2>
+                        <p class="wizard-page-desc">Initial position on robot boot.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div id="startPosField" class="form-row">
+                            <label>Starting Position</label>
+                            <input type="text" id="yamsStartPosition" placeholder="0.0" class="wizard-input">
+                            <span class="hint-text">Only needed if not using absolute encoder with offset.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 8: External Feedback -->
+                <div class="wizard-page" data-page="8">
+                    <div class="wizard-page-header">
+                        <h2>📡 External Feedback</h2>
+                        <p class="wizard-page-desc">Configure absolute encoder or external sensor.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div class="form-row">
+                            <label>External Feedback Sensor</label>
+                            <select id="yamsSensorType" class="wizard-input"
+                                onchange="window.enforceEncoderGuardrails && window.enforceEncoderGuardrails()">
+                                <option value="Internal">None (Internal Encoder)</option>
+                                <option value="CANCoder">CANCoder</option>
+                                <option value="ThroughBore">ThroughBore Encoder</option>
+                            </select>
+                        </div>
+                        <div id="absoluteOptions" style="display: none; margin-top: 15px;">
+                            <div style="display: flex; gap: 15px;">
+                                <div style="flex:1" class="form-row">
+                                    <label>Encoder Gearing</label>
+                                    <input type="text" id="yamsEncoderGearing" placeholder="1.0" class="wizard-input">
+                                </div>
+                                <div style="flex:1" class="form-row">
+                                    <label>Inverted?</label>
+                                    <select id="yamsEncoderInverted" class="wizard-input">
+                                        <option value="false">No</option>
+                                        <option value="true">Yes</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row" style="margin-top: 15px;">
+                                <label>Encoder Offset</label>
+                                <input type="text" id="yamsEncoderOffset" placeholder="0.0" class="wizard-input">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 9: Mechanism-Specific Config -->
+                <div class="wizard-page" data-page="9">
+                    <div class="wizard-page-header">
+                        <h2>🔧 Mechanism Config</h2>
+                        <p class="wizard-page-desc">Configuration specific to your mechanism.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div id="armConfig" style="display: none;">
+                            <h3 style="margin-top:0; margin-bottom:15px; font-size:1em;">Arm Configuration</h3>
+                            <div class="form-row">
+                                <label>Arm Length (meters)</label>
+                                <input type="number" id="yamsArmLength" placeholder="0.75" class="wizard-input">
+                            </div>
+                            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                                <div style="flex: 1;" class="form-row">
+                                    <label>Min Angle (deg)</label>
+                                    <input type="number" id="yamsArmAngleMin" placeholder="-90.0" class="wizard-input">
+                                </div>
+                                <div style="flex: 1;" class="form-row">
+                                    <label>Max Angle (deg)</label>
+                                    <input type="number" id="yamsArmAngleMax" placeholder="180.0" class="wizard-input">
+                                </div>
+                            </div>
+                            <div class="form-row" style="margin-top: 10px;">
+                                <label>Arm Mass (kg)</label>
+                                <input type="number" id="yamsArmMass" placeholder="5.0" class="wizard-input">
+                            </div>
+                        </div>
+
+                        <div id="elevatorConfig" style="display: none;">
+                            <h3 style="margin-top:0; margin-bottom:15px; font-size:1em;">Elevator Configuration</h3>
+                            <div class="form-row">
+                                <label>Drum Radius (meters)</label>
+                                <input type="number" id="yamsDrumRadius" placeholder="0.02" class="wizard-input">
+                            </div>
+                            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                                <div style="flex: 1;" class="form-row">
+                                    <label>Min Height (meters)</label>
+                                    <input type="number" id="yamsElevatorMinHeight" placeholder="0.0" value="0.0"
+                                        class="wizard-input">
+                                </div>
+                                <div style="flex: 1;" class="form-row">
+                                    <label>Max Height (meters)</label>
+                                    <input type="number" id="yamsElevatorMaxHeight" placeholder="1.5"
+                                        class="wizard-input">
+                                </div>
+                            </div>
+                            <div class="form-row" style="margin-top: 10px;">
+                                <label>Carriage Mass (kg)</label>
+                                <input type="number" id="yamsElevatorMass" placeholder="4.0" class="wizard-input">
+                            </div>
+                        </div>
+
+                        <div id="flywheelConfig" style="display: none;">
+                            <h3 style="margin-top:0; margin-bottom:15px; font-size:1em;">Flywheel Configuration</h3>
+                            <div class="form-row">
+                                <label>Moment of Inertia (kg·m²)</label>
+                                <input type="number" id="yamsFlywheelMoI" placeholder="0.001" class="wizard-input">
+                            </div>
+                        </div>
+
+                        <div id="genericConfig">
+                            <p style="opacity: 0.6;">No additional configuration required for this mechanism type.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 10: Helper Functions -->
+                <div class="wizard-page" data-page="10">
+                    <div class="wizard-page-header">
+                        <h2>✅ Review & Generate</h2>
+                        <p class="wizard-page-desc">Review your configuration.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div class="review-card">
+                            <h3 id="reviewName" style="margin: 0 0 10px 0;">Subsystem</h3>
+                            <div style="font-size: 0.9em; opacity: 0.8; line-height: 1.8;">
+                                <div>Mechanism: <span id="reviewType">Generic</span></div>
+                                <div>Motor: <span id="reviewMotor">Kraken X60</span></div>
+                                <div>Control: <span id="reviewControl">Closed Loop</span></div>
+                                <div>Sensor: <span id="reviewSensor">Internal</span></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -242,13 +550,13 @@
 
             <!-- Wizard Navigation -->
             <div class="wizard-footer">
-                <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()" disabled>
+                <button class="btn btn-secondary wizard-btn-prev" disabled>
                     ← Previous
                 </button>
                 <div class="wizard-page-indicator">
-                    <span id="currentStepNum">1</span> / 5
+                    <span id="currentStepNum">1</span> / 10
                 </div>
-                <button class="btn wizard-btn-next" onclick="nextWizardStep()">
+                <button class="btn wizard-btn-next">
                     Next →
                 </button>
             </div>
@@ -520,6 +828,7 @@
     </div>
 
     <script src="js/subsystemData.js"></script>
+    <script src="js/guardrails.js"></script>
     <script src="js/subsystemWizard.js"></script>
 </body>
 

@@ -1,18 +1,19 @@
 :root {
-    --background: var(--vscode-sideBar-background);
+    --background: var(--vscode-editor-background);
     --foreground: var(--vscode-editor-foreground);
     --sidebar-bg: var(--vscode-sideBar-background);
     --sidebar-fg: var(--vscode-sideBar-foreground);
-    --list-hover: var(--vscode-list-hoverBackground);
+    --border-color: var(--vscode-panel-border);
     --input-bg: var(--vscode-input-background);
     --input-fg: var(--vscode-input-foreground);
-    --input-border: var(--vscode-dropdown-border);
+    --input-border: var(--vscode-input-border);
     --button-bg: var(--vscode-button-background);
     --button-fg: var(--vscode-button-foreground);
     --button-hover: var(--vscode-button-hoverBackground);
-    --border-color: var(--vscode-panel-border);
     --header-bg: var(--vscode-editorGroupHeader-tabsBackground);
     --focus-border: var(--vscode-focusBorder);
+    --card-bg: var(--vscode-editorWidget-background);
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 body {
@@ -26,45 +27,55 @@ body {
     overflow: hidden;
 }
 
-/* Modern Input Styling */
-input,
+/* ==========================================
+   MODERN INPUTS & CONTROLS
+   ========================================== */
+
+input[type="text"],
+input[type="number"],
 select {
     background-color: var(--input-bg);
     color: var(--input-fg);
     border: 1px solid var(--input-border);
-    padding: 10px 12px;
+    padding: 12px 14px;
     border-radius: 6px;
     font-family: inherit;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s;
-    font-size: 0.95em;
+    font-size: 14px;
+    height: 42px;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 input:focus,
 select:focus {
-    outline: none;
+    outline: 1px solid var(--focus-border);
+    outline-offset: -1px;
     border-color: var(--focus-border);
-    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
 }
 
-/* Modern Button Styling */
+/* Placeholder styling */
+::placeholder {
+    color: var(--vscode-input-placeholderForeground);
+}
+
+/* ==========================================
+   BUTTONS
+   ========================================== */
+
 .btn {
     background-color: var(--button-bg);
     color: var(--button-fg);
     border: none;
-    padding: 10px 20px;
+    padding: 10px 24px;
     border-radius: 6px;
     cursor: pointer;
+    font-size: 14px;
     font-weight: 500;
-    transition: background-color 0.15s, transform 0.1s;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    font-size: 0.95em;
-}
-
-.btn:active {
-    transform: scale(0.98);
+    height: 42px;
 }
 
 .btn:hover {
@@ -72,15 +83,23 @@ select:focus {
 }
 
 .btn-secondary {
-    background-color: var(--sidebar-bg);
-    border: 1px solid var(--border-color);
-    color: var(--foreground);
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
 }
 
 .btn-secondary:hover {
-    background-color: var(--list-hover);
-    border-color: var(--focus-border);
+    background-color: var(--vscode-button-secondaryHoverBackground);
 }
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ==========================================
+   MAIN LAYOUT & SIDEBAR
+   ========================================== */
 
 .sidebar {
     width: 280px;
@@ -88,41 +107,287 @@ select:focus {
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 
 .sidebar-header {
-    padding: 15px 20px;
+    padding: 10px 20px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 0.8em;
-    opacity: 0.9;
-    letter-spacing: 0.5px;
-    color: var(--vscode-descriptionForeground);
+    color: var(--vscode-sideBarSectionHeader-foreground);
+    background-color: var(--vscode-sideBarSectionHeader-background);
 }
 
 .device-type-list {
     flex: 1;
     overflow-y: auto;
-    padding-bottom: 20px;
+    padding: 10px 0;
 }
 
 .device-type-item {
-    padding: 10px 20px;
+    padding: 6px 20px;
     cursor: grab;
     user-select: none;
-    margin: 2px 8px;
-    border-radius: 6px;
-    transition: background-color 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--sidebar-fg);
 }
 
 .device-type-item:hover {
-    background-color: var(--list-hover);
+    background-color: var(--vscode-list-hoverBackground);
+    color: var(--vscode-list-hoverForeground);
 }
 
-.device-type-item:active {
-    cursor: grabbing;
+.device-type-item img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    border-radius: 3px;
+    padding: 2px;
 }
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 40px;
+    overflow-y: auto;
+    background-color: var(--vscode-editor-background);
+}
+
+/* ==========================================
+   YAMS WIZARD CARD STYLING
+   ========================================== */
+
+.yams-wizard {
+    background-color: var(--vscode-editorWidget-background);
+    border: 1px solid var(--vscode-widget-border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.wizard-header {
+    padding: 30px 50px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--vscode-editorWidget-background);
+}
+
+/* Modern Step Indicators */
+.wizard-steps {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.wizard-steps::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: var(--vscode-progressBar-background);
+    opacity: 0.2;
+    z-index: 0;
+}
+
+.wizard-step {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    background-color: var(--vscode-editorWidget-background);
+    padding: 0 10px;
+}
+
+.step-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: var(--vscode-editorWidget-background);
+    border: 1px solid var(--vscode-progressBar-background);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--vscode-descriptionForeground);
+    transition: all 0.2s ease;
+}
+
+.wizard-step.active .step-number {
+    background-color: var(--button-bg);
+    color: var(--button-fg);
+    border-color: var(--button-bg);
+    box-shadow: 0 0 0 4px var(--vscode-editor-background);
+}
+
+.wizard-step.completed .step-number {
+    background-color: var(--vscode-terminal-ansiGreen);
+    color: #fff;
+    border-color: var(--vscode-terminal-ansiGreen);
+}
+
+.wizard-step:hover .step-number {
+    border-color: var(--focus-border);
+}
+
+/* Hides connectors div since we use pseudo-element */
+.wizard-step-connector {
+    display: none;
+}
+
+/* ==========================================
+   WIZARD CONTENT
+   ========================================== */
+
+.wizard-content {
+    padding: 40px 50px;
+    min-height: 400px;
+}
+
+.wizard-page-header {
+    margin-bottom: 25px;
+}
+
+.wizard-page-header h2 {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0 0 6px 0;
+    color: var(--foreground);
+}
+
+.wizard-page-desc {
+    font-size: 13px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+}
+
+.wizard-page-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-row label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--foreground);
+    cursor: pointer;
+}
+
+/* Hint Text */
+.hint-text {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+    margin-top: 4px;
+}
+
+/* ==========================================
+   REVIEW PAGE CARD
+   ========================================== */
+.review-card {
+    background-color: var(--vscode-textBlockQuote-background);
+    border-left: 4px solid var(--vscode-textBlockQuote-border);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.review-card h3 {
+    color: var(--foreground);
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+
+.review-card div {
+    margin-bottom: 6px;
+    font-family: var(--vscode-editor-font-family);
+    font-size: 13px;
+}
+
+/* ==========================================
+   FOOTER
+   ========================================== */
+
+.wizard-footer {
+    padding: 25px 50px;
+    border-top: 1px solid var(--border-color);
+    background-color: var(--vscode-editorWidget-background);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.wizard-page-indicator {
+    font-size: 13px;
+    color: var(--vscode-descriptionForeground);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================
+   ANIMATIONS
+   ========================================== */
+
+.wizard-page {
+    display: none;
+    animation: fadeSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wizard-page.active {
+    display: block;
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.wizard-btn-next.finish:hover {
+    background: #218838;
+}
+
+.wizard-page-indicator {
+    font-size: 0.95em;
+    color: var(--vscode-descriptionForeground);
+    font-weight: 500;
+    background: var(--vscode-input-background);
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.wizard-page-indicator #currentStepNum {
+    color: var(--vscode-foreground);
+    font-weight: 600;
+}
+
+/* ==========================================
+   RESTORED COMPONENTS
+   ========================================== */
 
 .nested-drop-zone {
     border: 2px dashed var(--vscode-input-placeholderForeground);
@@ -163,15 +428,6 @@ select:focus {
     opacity: 0.5;
 }
 
-.device-type-item img {
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 4px;
-}
-
 .device-type-item.disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -191,41 +447,6 @@ select:focus {
     border: 1px solid var(--input-border);
     border-radius: 6px;
     box-sizing: border-box;
-}
-
-.main-content {
-    flex: 1;
-    padding: 30px 50px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-}
-
-h1 {
-    font-size: 2em;
-    font-weight: 600;
-    margin: 0;
-    letter-spacing: -0.5px;
-}
-
-.form-section {
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-}
-
-.form-row {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-label {
-    font-weight: 600;
-    font-size: 0.95em;
-    color: var(--vscode-foreground);
-    opacity: 0.9;
 }
 
 .section-label {
@@ -260,10 +481,8 @@ label {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0 8px;
-    /* Spacing between rows */
 }
 
-/* Empty state styling */
 .drop-zone:empty::before {
     content: "Drag & Drop Devices Here";
     color: var(--vscode-descriptionForeground);
@@ -290,7 +509,6 @@ td {
     border-bottom: 1px solid var(--border-color);
 }
 
-/* Rounded corners for table rows */
 tr.device-row td:first-child {
     border-left: 1px solid var(--border-color);
     border-top-left-radius: 8px;
@@ -477,7 +695,6 @@ tr.device-row:hover td {
     opacity: 0.9;
 }
 
-/* Nav Buttons */
 .carousel-btn {
     position: absolute;
     top: 50%;
@@ -506,7 +723,6 @@ tr.device-row:hover td {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
-/* Modal Styling */
 .modal {
     display: none;
     position: fixed;
@@ -523,7 +739,6 @@ tr.device-row:hover td {
 .modal-content {
     background-color: var(--sidebar-bg);
     margin: 4% auto;
-    /* Slightly higher up */
     padding: 0;
     border: 1px solid var(--border-color);
     border-radius: 12px;
@@ -581,237 +796,4 @@ tr.device-row:hover td {
 
 .config-section:hover {
     border-color: var(--focus-border);
-}
-
-/* ==========================================
-   YAMS WIZARD STYLES
-   ========================================== */
-
-.yams-wizard {
-    background: var(--vscode-editor-background);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    animation: wizardFadeIn 0.3s ease-out;
-}
-
-@keyframes wizardFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Wizard Header - Step Indicators */
-.wizard-header {
-    background: var(--header-bg);
-    padding: 15px 30px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.wizard-steps {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-}
-
-.wizard-step {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-    padding: 8px 15px;
-    border-radius: 10px;
-}
-
-.wizard-step:hover {
-    background: rgba(128, 128, 128, 0.1);
-}
-
-.step-number {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--vscode-input-background);
-    border: 2px solid var(--border-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.9em;
-    color: var(--vscode-descriptionForeground);
-    transition: all 0.25s;
-}
-
-.wizard-step.active .step-number,
-.wizard-step.completed .step-number {
-    background: var(--button-bg);
-    border-color: var(--button-bg);
-    color: var(--button-fg);
-    box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
-}
-
-.wizard-step.completed .step-number {
-    background: #28a745;
-    border-color: #28a745;
-}
-
-.step-label {
-    font-size: 0.85em;
-    font-weight: 500;
-    color: var(--vscode-descriptionForeground);
-    transition: color 0.2s;
-}
-
-.wizard-step.active .step-label {
-    color: var(--vscode-foreground);
-}
-
-.wizard-step-connector {
-    width: 40px;
-    height: 2px;
-    background: var(--border-color);
-    border-radius: 2px;
-    margin: 0 3px;
-    margin-bottom: 22px;
-    transition: background 0.3s;
-}
-
-.wizard-step.completed+.wizard-step-connector,
-.wizard-step-connector.completed {
-    background: var(--button-bg);
-}
-
-/* Wizard Content Area */
-.wizard-content {
-    position: relative;
-    min-height: 250px;
-    padding: 0;
-    overflow: hidden;
-}
-
-.wizard-page {
-    display: none;
-    padding: 25px 40px;
-    animation: pageSlideIn 0.3s ease-out;
-}
-
-.wizard-page.active {
-    display: block;
-}
-
-@keyframes pageSlideIn {
-    from {
-        opacity: 0;
-        transform: translateX(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-.wizard-page-header {
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.wizard-page-header h2 {
-    margin: 0 0 10px 0;
-    font-size: 1.5em;
-    font-weight: 600;
-    color: var(--vscode-foreground);
-}
-
-.wizard-page-desc {
-    margin: 0;
-    font-size: 1em;
-    color: var(--vscode-descriptionForeground);
-    line-height: 1.5;
-}
-
-.wizard-page-body {
-    min-height: 120px;
-}
-
-/* Placeholder Styling */
-.wizard-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 120px;
-    background: rgba(128, 128, 128, 0.03);
-    border: 2px dashed var(--border-color);
-    border-radius: 12px;
-    padding: 30px;
-    text-align: center;
-    gap: 12px;
-}
-
-.placeholder-icon {
-    font-size: 3em;
-    opacity: 0.6;
-}
-
-.placeholder-text {
-    font-size: 1.1em;
-    color: var(--vscode-descriptionForeground);
-    font-weight: 500;
-}
-
-/* Wizard Footer - Navigation */
-.wizard-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 40px;
-    background: var(--header-bg);
-    border-top: 1px solid var(--border-color);
-}
-
-.wizard-btn-prev,
-.wizard-btn-next {
-    min-width: 130px;
-    padding: 12px 24px;
-    font-size: 0.95em;
-}
-
-.wizard-btn-prev:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.wizard-btn-next.finish {
-    background: #28a745;
-}
-
-.wizard-btn-next.finish:hover {
-    background: #218838;
-}
-
-.wizard-page-indicator {
-    font-size: 0.95em;
-    color: var(--vscode-descriptionForeground);
-    font-weight: 500;
-    background: var(--vscode-input-background);
-    padding: 8px 20px;
-    border-radius: 20px;
-    border: 1px solid var(--border-color);
-}
-
-.wizard-page-indicator #currentStepNum {
-    color: var(--vscode-foreground);
-    font-weight: 600;
 }
