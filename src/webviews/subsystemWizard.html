@@ -5,518 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Subsystem</title>
-    <style>
-        :root {
-            --background: var(--vscode-sideBar-background);
-            --foreground: var(--vscode-editor-foreground);
-            --sidebar-bg: var(--vscode-sideBar-background);
-            --sidebar-fg: var(--vscode-sideBar-foreground);
-            --list-hover: var(--vscode-list-hoverBackground);
-            --input-bg: var(--vscode-input-background);
-            --input-fg: var(--vscode-input-foreground);
-            --input-border: var(--vscode-dropdown-border);
-            --button-bg: var(--vscode-button-background);
-            --button-fg: var(--vscode-button-foreground);
-            --button-hover: var(--vscode-button-hoverBackground);
-            --border-color: var(--vscode-panel-border);
-            --header-bg: var(--vscode-editorGroupHeader-tabsBackground);
-            --focus-border: var(--vscode-focusBorder);
-        }
-
-        body {
-            font-family: var(--vscode-font-family);
-            font-size: var(--vscode-font-size);
-            background-color: var(--background);
-            color: var(--foreground);
-            margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Modern Input Styling */
-        input,
-        select {
-            background-color: var(--input-bg);
-            color: var(--input-fg);
-            border: 1px solid var(--input-border);
-            padding: 8px 10px;
-            border-radius: 4px;
-            font-family: inherit;
-            transition: border-color 0.15s ease-in-out;
-        }
-
-        input:focus,
-        select:focus {
-            outline: none;
-            border-color: var(--focus-border);
-            box-shadow: 0 0 0 1px var(--focus-border);
-        }
-
-        /* Modern Button Styling */
-        .btn {
-            background-color: var(--button-bg);
-            color: var(--button-fg);
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background-color 0.15s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-
-        .btn:hover {
-            background-color: var(--button-hover);
-        }
-
-        .btn-secondary {
-            background-color: var(--sidebar-bg);
-            border: 1px solid var(--input-border);
-            color: var(--foreground);
-        }
-
-        .btn-secondary:hover {
-            background-color: var(--list-hover);
-        }
-
-        .sidebar-header {
-            padding: 10px 20px;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.85em;
-            opacity: 0.8;
-            letter-spacing: 0.5px;
-        }
-
-        .device-type-list {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .device-type-item {
-            padding: 8px 20px;
-            cursor: grab;
-            user-select: none;
-        }
-
-        .device-type-item:hover {
-            background-color: var(--list-hover);
-        }
-
-        .device-type-item:active {
-            cursor: grabbing;
-        }
-
-        .nested-drop-zone {
-            border: 2px dashed #444;
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 4px;
-            padding: 10px;
-            margin-top: 5px;
-            text-align: center;
-            font-size: 0.85em;
-            color: #aaa;
-            transition: all 0.2s;
-        }
-
-        .nested-drop-zone.drag-over {
-            border-color: var(--vscode-focusBorder);
-            background: rgba(100, 100, 255, 0.1);
-        }
-
-        .nested-device {
-            background: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            padding: 5px 10px;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .device-type-item.dragging {
-            opacity: 0.5;
-        }
-
-        .device-type-item img {
-            width: 24px;
-            height: 24px;
-            object-fit: contain;
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px;
-        }
-
-        .device-type-item.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            filter: grayscale(1);
-        }
-
-        .device-type-item.disabled:hover {
-            background-color: transparent;
-        }
-
-        .search-container {
-            padding: 10px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 6px;
-            background: var(--input-bg);
-            color: var(--input-fg);
-            border: 1px solid var(--input-border);
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        .main-content {
-            flex: 1;
-            padding: 20px 40px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        h1 {
-            font-size: 1.8em;
-            font-weight: 500;
-            margin: 0;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .form-section {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .form-row {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        label {
-            font-weight: 600;
-            font-size: 0.9em;
-        }
-
-        .section-label {
-            display: block;
-            margin-bottom: 15px;
-            font-size: 1.1em;
-            /* Slightly larger for main section */
-            color: var(--foreground);
-        }
-
-        input,
-        select {
-            background-color: var(--input-bg);
-            color: var(--input-fg);
-            border: 1px solid var(--input-border);
-            padding: 8px;
-            border-radius: 2px;
-            font-family: inherit;
-        }
-
-        input:focus,
-        select:focus {
-            outline: 1px solid var(--vscode-focusBorder);
-            border-color: var(--vscode-focusBorder);
-        }
-
-        .drop-zone {
-            min-height: 150px;
-            border: 2px dashed var(--vscode-dropdown-border);
-            border-radius: 8px;
-            transition: all 0.3s ease;
-            background: rgba(128, 128, 128, 0.05);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-        }
-
-        .drop-zone.drag-over {
-            border-color: var(--focus-border);
-            background: rgba(128, 128, 128, 0.15);
-            transform: scale(1.005);
-        }
-
-        .drop-zone table {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Empty state styling */
-        .drop-zone:empty::before {
-            content: "Drag & Drop Devices Here";
-            color: var(--foreground);
-            opacity: 0.5;
-            font-size: 1.1em;
-            pointer-events: none;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95em;
-        }
-
-        th {
-            text-align: left;
-            padding: 8px;
-            border-bottom: 1px solid var(--border-color);
-            opacity: 0.7;
-            font-weight: normal;
-        }
-
-        td {
-            padding: 8px;
-            border-bottom: 1px solid rgba(128, 128, 128, 0.1);
-        }
-
-        .btn {
-            background-color: var(--button-bg);
-            color: var(--button-fg);
-            border: none;
-            padding: 6px 14px;
-            border-radius: 2px;
-            cursor: pointer;
-        }
-
-        .btn:hover {
-            background-color: var(--button-hover);
-        }
-
-        .btn-icon {
-            background: transparent;
-            padding: 4px;
-            cursor: pointer;
-            opacity: 0.7;
-        }
-
-        .btn-icon:hover {
-            opacity: 1;
-            color: var(--vscode-errorForeground);
-        }
-
-        .checkbox-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            padding: 10px;
-            background: rgba(128, 128, 128, 0.05);
-            border-radius: 4px;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .checkbox-item input[type="checkbox"] {
-            cursor: pointer;
-        }
-
-        .checkbox-item label {
-            cursor: pointer;
-            font-weight: normal;
-        }
-
-        .info-popup {
-            position: fixed;
-            background: var(--vscode-editorHoverWidget-background);
-            border: 1px solid var(--vscode-editorHoverWidget-border);
-            border-radius: 4px;
-            padding: 12px 16px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            max-width: 350px;
-            z-index: 1000;
-            display: none;
-        }
-
-        .info-popup h3 {
-            margin: 0 0 8px 0;
-            font-size: 1.1em;
-        }
-
-        .info-popup p {
-            margin: 4px 0;
-            font-size: 0.9em;
-            opacity: 0.9;
-        }
-
-        .info-popup code {
-            background: rgba(128, 128, 128, 0.2);
-            padding: 2px 4px;
-            border-radius: 2px;
-            font-size: 0.85em;
-        }
-
-        .info-popup .close-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: transparent;
-            border: none;
-            color: var(--foreground);
-            cursor: pointer;
-            font-size: 1.2em;
-            padding: 0;
-            width: 20px;
-            height: 20px;
-        }
-
-        /* Horizontal Carousel Styling */
-        .carousel-wrapper {
-            position: relative;
-            width: 100%;
-            margin-bottom: 25px;
-            padding: 0 50px;
-            /* Increased padding for arrows */
-            box-sizing: border-box;
-        }
-
-        .carousel-track-container {
-            overflow: hidden;
-            width: 100%;
-            height: 350px;
-            /* Fixed unit */
-            border-radius: 12px;
-            padding: 5px 0;
-        }
-
-        .carousel-track {
-            display: flex;
-            gap: 25px;
-            /* Increased gap */
-            overflow-x: auto;
-            scroll-behavior: smooth;
-            scrollbar-width: none;
-            padding: 10px 5px;
-            /* Add padding for hover effects/shadows */
-            align-items: center;
-            /* Center cards vertically */
-            height: 100%;
-        }
-
-        .carousel-track::-webkit-scrollbar {
-            display: none;
-        }
-
-        .card {
-            flex: 0 0 300px;
-            /* Increased size */
-            height: 300px;
-            /* Increased size */
-            border-radius: 16px;
-            /* Slightly rounder */
-            position: relative;
-            cursor: pointer;
-            overflow: hidden;
-            border: 2px solid transparent;
-            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            background-color: var(--input-bg);
-            /* background-image set inline per card */
-            background-size: cover;
-            background-position: center;
-        }
-
-        .card:hover {
-            transform: scale(1.02);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-            z-index: 2;
-        }
-
-        .card.active {
-            border-color: var(--focus-border);
-            box-shadow: 0 0 0 2px var(--focus-border), 0 8px 25px rgba(0, 0, 0, 0.5);
-            transform: scale(1.02);
-            z-index: 2;
-        }
-
-        .card-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.6) 40%, transparent 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding: 20px 15px;
-            box-sizing: border-box;
-            transition: background 0.3s;
-        }
-
-        .card:hover .card-overlay {
-            background: linear-gradient(to top, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0.7) 50%, transparent 100%);
-        }
-
-        .card-title {
-            font-weight: 700;
-            font-size: 1.25em;
-            color: #ffffff;
-            margin-bottom: 5px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-        }
-
-        .card-desc {
-            font-size: 0.85em;
-            color: #e0e0e0;
-            line-height: 1.35;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-        }
-
-        /* Nav Buttons */
-        .carousel-btn {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--button-bg);
-            color: var(--button-fg);
-            border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            cursor: pointer;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2em;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            transition: all 0.2s;
-            opacity: 0.9;
-        }
-
-        .carousel-btn:hover {
-            background: var(--button-hover);
-            transform: translateY(-50%) scale(1.1);
-            opacity: 1;
-        }
-
-        .carousel-btn.prev {
-            left: 10px;
-        }
-
-        .carousel-btn.next {
-            right: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/subsystemWizard.css">
 </head>
 
 <body>
@@ -645,6 +134,126 @@
             </div>
         </div>
 
+        <!-- YAMS Wizard (only shown when YAMS is selected) -->
+        <div id="yams-wizard" class="yams-wizard" style="display: none;">
+            <!-- Step Indicators -->
+            <div class="wizard-header">
+                <div class="wizard-steps">
+                    <div class="wizard-step active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-label">Basics</div>
+                    </div>
+                    <div class="wizard-step-connector"></div>
+                    <div class="wizard-step" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-label">Motors</div>
+                    </div>
+                    <div class="wizard-step-connector"></div>
+                    <div class="wizard-step" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-label">Control</div>
+                    </div>
+                    <div class="wizard-step-connector"></div>
+                    <div class="wizard-step" data-step="4">
+                        <div class="step-number">4</div>
+                        <div class="step-label">Sensors</div>
+                    </div>
+                    <div class="wizard-step-connector"></div>
+                    <div class="wizard-step" data-step="5">
+                        <div class="step-number">5</div>
+                        <div class="step-label">Review</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wizard Pages Container -->
+            <div class="wizard-content">
+                <!-- Page 1: Basics -->
+                <div class="wizard-page active" data-page="1">
+                    <div class="wizard-page-header">
+                        <h2>🚀 Basic Configuration</h2>
+                        <p class="wizard-page-desc">Set up the fundamental properties of your YAMS mechanism.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <!-- Placeholder content -->
+                        <div class="wizard-placeholder">
+                            <span class="placeholder-icon">⚙️</span>
+                            <span class="placeholder-text">Basic configuration options will appear here</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 2: Motors -->
+                <div class="wizard-page" data-page="2">
+                    <div class="wizard-page-header">
+                        <h2>🔌 Motor Configuration</h2>
+                        <p class="wizard-page-desc">Configure your motors and their properties.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div class="wizard-placeholder">
+                            <span class="placeholder-icon">⚡</span>
+                            <span class="placeholder-text">Motor configuration options will appear here</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 3: Control -->
+                <div class="wizard-page" data-page="3">
+                    <div class="wizard-page-header">
+                        <h2>🎮 Control System</h2>
+                        <p class="wizard-page-desc">Set up PID, feedforward, and motion profiles.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div class="wizard-placeholder">
+                            <span class="placeholder-icon">📊</span>
+                            <span class="placeholder-text">Control system options will appear here</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 4: Sensors -->
+                <div class="wizard-page" data-page="4">
+                    <div class="wizard-page-header">
+                        <h2>📡 Sensors & Feedback</h2>
+                        <p class="wizard-page-desc">Configure encoders, limit switches, and other sensors.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div class="wizard-placeholder">
+                            <span class="placeholder-icon">🔍</span>
+                            <span class="placeholder-text">Sensor configuration options will appear here</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Page 5: Review -->
+                <div class="wizard-page" data-page="5">
+                    <div class="wizard-page-header">
+                        <h2>✅ Review & Generate</h2>
+                        <p class="wizard-page-desc">Review your configuration and generate the code.</p>
+                    </div>
+                    <div class="wizard-page-body">
+                        <div class="wizard-placeholder">
+                            <span class="placeholder-icon">📋</span>
+                            <span class="placeholder-text">Configuration summary will appear here</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wizard Navigation -->
+            <div class="wizard-footer">
+                <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()" disabled>
+                    ← Previous
+                </button>
+                <div class="wizard-page-indicator">
+                    <span id="currentStepNum">1</span> / 5
+                </div>
+                <button class="btn wizard-btn-next" onclick="nextWizardStep()">
+                    Next →
+                </button>
+            </div>
+        </div>
+
         <!-- PID Configuration (only shown for PID subsystems) -->
         <div id="pid-section" style="display: none;">
             <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">PID Configuration</h2>
@@ -725,11 +334,11 @@
                 <table>
                     <thead>
                         <tr>
-                            <th width="20%">Device Type</th>
-                            <th width="20%">Variable Name</th>
+                            <th width="28%">Device Type</th>
+                            <th width="22%">Variable Name</th>
                             <th width="10%">CAN ID</th>
-                            <th width="15%">Bus</th>
-                            <th width="30%">Helper Methods</th>
+                            <th width="12%">Bus</th>
+                            <th width="23%">Helper Methods</th>
                             <th width="5%"></th>
                         </tr>
                     </thead>
@@ -749,806 +358,169 @@
         <p id="popupImport"></p>
     </div>
 
-    <script>
-        const vscode = acquireVsCodeApi();
+    <!-- YAMS Configuration Modal -->
+    <div id="yamsConfigModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>SmartMotorController Config (YAMS)</h2>
+                <button class="modal-close" onclick="closeYamsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="currentConfigDeviceIndex" value="-1">
 
-        // Mirror of src/generators/deviceHelpers.js
-        const DEVICE_HELPERS = {
-            'TalonFX': [
-                { id: 'setSpeed', label: 'setSpeed(%)' },
-                { id: 'stop', label: 'stop()' },
-                { id: 'getVelocity', label: 'getVelocity()' },
-                { id: 'getPosition', label: 'getPosition()' },
-                { id: 'setVoltage', label: 'setVoltage()' },
-                { id: 'getTemp', label: 'getTemp()' }
-            ],
-            'TalonFXS': [
-                { id: 'setSpeed', label: 'setSpeed(%)' },
-                { id: 'stop', label: 'stop()' },
-                { id: 'getVelocity', label: 'getVelocity()' },
-                { id: 'getPosition', label: 'getPosition()' },
-                { id: 'setVoltage', label: 'setVoltage()' }
-            ],
-            'CANSparkMax': [
-                { id: 'setSpeed', label: 'setSpeed(%)' },
-                { id: 'stop', label: 'stop()' },
-                { id: 'getVelocity', label: 'getVelocity()' },
-                { id: 'getPosition', label: 'getPosition()' },
-                { id: 'setVoltage', label: 'setVoltage()' },
-                { id: 'getTemp', label: 'getTemp()' }
-            ],
-            'SparkMax': [
-                { id: 'setSpeed', label: 'setSpeed(%)' },
-                { id: 'stop', label: 'stop()' },
-                { id: 'getVelocity', label: 'getVelocity()' },
-                { id: 'getPosition', label: 'getPosition()' },
-                { id: 'setVoltage', label: 'setVoltage()' },
-                { id: 'getTemp', label: 'getTemp()' }
-            ],
-            'SparkFlex': [
-                { id: 'setSpeed', label: 'setSpeed(%)' },
-                { id: 'stop', label: 'stop()' },
-                { id: 'getVelocity', label: 'getVelocity()' },
-                { id: 'getPosition', label: 'getPosition()' },
-                { id: 'setVoltage', label: 'setVoltage()' }
-            ],
-            'TalonSRX': [
-                { id: 'setSpeed', label: 'setSpeed(%)' },
-                { id: 'stop', label: 'stop()' },
-                { id: 'setVoltage', label: 'setVoltage()' }
-            ],
-            'VictorSPX': [
-                { id: 'setSpeed', label: 'setSpeed(%)' },
-                { id: 'stop', label: 'stop()' },
-                { id: 'setVoltage', label: 'setVoltage()' }
-            ],
-            'CANcoder': [
-                { id: 'getPosition', label: 'getPosition()' },
-                { id: 'getVelocity', label: 'getVelocity()' },
-                { id: 'reset', label: 'reset()' },
-                { id: 'getAbsPosition', label: 'getAbsPosition()' },
-                { id: 'getVoltage', label: 'getSupplyVoltage()' },
-                { id: 'getTemp', label: 'getTemp()' },
-                { id: 'get', label: 'get()' }
-            ],
-            'Pigeon 2.0': [
-                { id: 'getYaw', label: 'getYaw()' },
-                { id: 'getPitch', label: 'getPitch()' },
-                { id: 'getRoll', label: 'getRoll()' },
-                { id: 'reset', label: 'reset()' },
-                { id: 'getRate', label: 'getRate()' },
-                { id: 'setYaw', label: 'setYaw()' }
-            ],
-            'NavX2 MXP': [
-                { id: 'getYaw', label: 'getYaw()' },
-                { id: 'reset', label: 'reset()' },
-                { id: 'getRate', label: 'getRate()' },
-                { id: 'getAngle', label: 'getAngle()' }
-            ],
-            'NavX2-Micro': [
-                { id: 'getYaw', label: 'getYaw()' },
-                { id: 'reset', label: 'reset()' },
-                { id: 'getRate', label: 'getRate()' },
-                { id: 'getAngle', label: 'getAngle()' }
-            ],
-            'Through Bore Encoder': [{ id: 'getAbsolute', label: 'getAbsolute()' }],
-            'DoubleSolenoid': [
-                { id: 'toggle', label: 'toggle()' },
-                { id: 'extend', label: 'extend()' },
-                { id: 'retract', label: 'retract()' },
-                { id: 'get', label: 'get()' },
-                { id: 'isExtended', label: 'isExtended()' },
-                { id: 'isRetracted', label: 'isRetracted()' }
-            ],
-            'Solenoid': [
-                { id: 'toggle', label: 'toggle()' },
-                { id: 'set', label: 'set(bool)' },
-                { id: 'get', label: 'get()' }
-            ],
-            'Servo': [
-                { id: 'setPosition', label: 'setPosition()' },
-                { id: 'getAngle', label: 'getAngle()' },
-                { id: 'setAngle', label: 'setAngle()' },
-                { id: 'getPosition', label: 'getPosition()' }
-            ]
-        };
-
-        const deviceTypes = [
-            // --- Motor Controllers & Motors ---
-            {
-                name: 'Kraken X60',
-                category: 'Motors',
-                description: 'Brushless Motor w/ Integrated TalonFX', // Clarified it is integrated
-                import: 'com.ctre.phoenix6.hardware.TalonFX',
-                requiredVendor: 'Phoenix6',
-                vendorUrl: 'https://v6.docs.ctr-electronics.com/en/stable/docs/installation/index.html',
-                image: '../../images/image.png',
-                needsController: true,
-                validControllers: ['TalonFX']
-            },
-            {
-                name: 'Kraken X44',
-                category: 'Motors',
-                description: 'Brushless Motor w/ Integrated TalonFX',
-                import: 'com.ctre.phoenix6.hardware.TalonFX',
-                requiredVendor: 'Phoenix6',
-                vendorUrl: 'https://v6.docs.ctr-electronics.com/en/stable/docs/installation/index.html',
-                image: '../../images/image.png',
-                needsController: true,
-                validControllers: ['TalonFX']
-            },
-            {
-                name: 'NEO Vortex',
-                category: 'Motors',
-                description: 'Brushless Motor (Requires SparkFlex)', // Explicit requirement
-                import: 'com.revrobotics.spark.SparkFlex',
-                requiredVendor: 'REVLib',
-                vendorUrl: 'https://docs.revrobotics.com/brushless/spark-flex/software-resources',
-                image: '../../images/image.png',
-                needsController: true,
-                validControllers: ['SparkFlex']
-            },
-            {
-                name: 'CTR Minion',
-                category: 'Motors',
-                description: 'Brushless Motor (Requires TalonFXS)', // Explicit requirement
-                import: 'com.ctre.phoenix6.hardware.TalonFXS',
-                requiredVendor: 'Phoenix6',
-                vendorUrl: 'https://v6.docs.ctr-electronics.com/',
-                image: '../../images/image.png',
-                needsController: true,
-                validControllers: ['TalonFXS']
-            },
-            {
-                name: 'NEO 550 Brushless Motor',
-                category: 'Motors',
-                description: 'Brushless Motor (Requires ext. Brushless Controller)',
-                import: 'com.revrobotics.SparkMax',
-                requiredVendor: 'REVLib',
-                vendorUrl: 'https://docs.revrobotics.com/',
-                image: '../../images/image.png',
-                needsController: true,
-                validControllers: ['SparkMax']
-            },
-            {
-                name: 'NEO Brushless Motor V1.1',
-                category: 'Motors',
-                description: 'Brushless Motor (Requires ext. Brushless Controller)',
-                import: 'com.revrobotics.SparkMax',
-                requiredVendor: 'REVLib',
-                vendorUrl: 'https://docs.revrobotics.com/',
-                image: '../../images/image.png',
-                needsController: true,
-                validControllers: ['SparkMax']
-            },
-            {
-                name: 'NEO 2.0 Brushless Motor',
-                category: 'Motors',
-                description: 'Brushless Motor (Requires ext. Brushless Controller)',
-                import: 'com.revrobotics.SparkMax',
-                requiredVendor: 'REVLib',
-                vendorUrl: 'https://docs.revrobotics.com/',
-                image: '../../images/image.png',
-                needsController: true,
-                validControllers: ['SparkMax', 'SparkFlex']
-            },
-
-            // --- Controllers ---
-            {
-                name: 'TalonFX',
-                category: 'Motor Controllers',
-                description: 'Integrated Controller (Kraken/Falcon)',
-                import: 'com.ctre.phoenix6.hardware.TalonFX',
-                requiredVendor: 'Phoenix6',
-                vendorUrl: 'https://v6.docs.ctr-electronics.com/',
-                image: '../../images/image.png'
-            },
-            {
-                name: 'TalonFXS',
-                category: 'Motor Controllers',
-                description: 'Controller for Minion/NEO/Vortex',
-                import: 'com.ctre.phoenix6.hardware.TalonFXS',
-                requiredVendor: 'Phoenix6',
-                vendorUrl: 'https://v6.docs.ctr-electronics.com/',
-                image: '../../images/image.png'
-            },
-            {
-                name: 'SparkMax',
-                category: 'Motor Controllers',
-                description: 'Controller for NEO/CIM/775',
-                import: 'com.revrobotics.spark.SparkMax',
-                requiredVendor: 'REVLib',
-                vendorUrl: 'https://docs.revrobotics.com/brushless/spark-max/software-resources',
-                image: '../../images/image.png'
-            },
-            {
-                name: 'SparkFlex',
-                category: 'Motor Controllers',
-                description: 'Controller for NEO Vortex',
-                import: 'com.revrobotics.spark.SparkFlex',
-                requiredVendor: 'REVLib',
-                vendorUrl: 'https://docs.revrobotics.com/brushless/spark-flex/software-resources',
-                image: '../../images/image.png'
-            },
-            {
-                name: 'TalonSRX',
-                category: 'Motor Controllers',
-                description: 'Brushed Motor Controller (CAN)',
-                import: 'com.ctre.phoenix.motorcontrol.can.TalonSRX',
-                requiredVendor: 'Phoenix',
-                vendorUrl: 'https://maven.ctr-electronics.com/release/com/ctre/phoenix/Phoenix5-frc2024-latest.json',
-                image: '../../images/image.png'
-            },
-            {
-                name: 'VictorSPX',
-                category: 'Motor Controllers',
-                description: 'Brushed Motor Controller (CAN)',
-                import: 'com.ctre.phoenix.motorcontrol.can.VictorSPX',
-                requiredVendor: 'Phoenix',
-                vendorUrl: 'https://maven.ctr-electronics.com/release/com/ctre/phoenix/Phoenix5-frc2024-latest.json',
-                image: '../../images/image.png'
-            },
-
-            // --- Sensors ---
-            { name: 'Pigeon 2.0', category: 'Sensors', description: 'CTRE IMU (CAN)', import: 'com.ctre.phoenix6.hardware.Pigeon2', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: '../../images/image.png' },
-            { name: 'CANcoder', category: 'Sensors', description: 'CTRE Absolute Encoder (CAN)', import: 'com.ctre.phoenix6.hardware.CANcoder', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: '../../images/image.png' },
-            { name: 'CANrange', category: 'Sensors', description: 'CTRE Distance Sensor (CAN)', import: 'com.ctre.phoenix6.hardware.CANrange', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: '../../images/image.png' },
-            { name: 'SRX Mag Encoder', category: 'Sensors', description: 'CTRE Magnetic Encoder', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: '../../images/image.png' },
-            { name: 'NavX2 MXP', category: 'Sensors', description: 'KauaiLabs Navigation (MXP Port)', import: 'com.kauailabs.navx.frc.AHRS', requiredVendor: 'NavX', vendorUrl: 'https://docs.studica.com/en/latest/docs/VMX-FRC/software/roborio-setup/index.html', image: '../../images/image.png' },
-            { name: 'NavX2-Micro', category: 'Sensors', description: 'KauaiLabs Navigation (USB)', import: 'com.kauailabs.navx.frc.AHRS', requiredVendor: 'NavX', vendorUrl: 'https://docs.studica.com/en/latest/docs/VMX-FRC/software/roborio-setup/index.html', image: '../../images/image.png' },
-            { name: 'Limelight 4', category: 'Sensors', description: 'Vision Camera (Ethernet)', import: 'edu.wpi.first.networktables.NetworkTable', image: '../../images/image.png' },
-            { name: 'Limelight 3/3A', category: 'Sensors', description: 'Vision Camera (Ethernet)', import: 'edu.wpi.first.networktables.NetworkTable', image: '../../images/image.png' },
-            { name: 'Color Sensor V3', category: 'Sensors', description: 'REV Color/Proximity (I2C)', import: 'com.revrobotics.ColorSensorV3', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: '../../images/image.png' },
-            { name: 'Color Sensor V2', category: 'Sensors', description: 'REV Color/Proximity (I2C)', import: 'com.revrobotics.ColorSensorV3', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: '../../images/image.png' },
-            { name: '2m Distance Sensor', category: 'Sensors', description: 'REV Time-of-Flight (I2C)', import: 'com.revrobotics.Rev2mDistanceSensor', requiredVendor: 'REVLib', vendorUrl: 'https://docs.revrobotics.com/', image: '../../images/image.png' },
-            { name: 'Through Bore Encoder', category: 'Sensors', description: 'REV Absolute Encoder (DIO/PWM)', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: '../../images/image.png' },
-            { name: 'MAXSpline Encoder', category: 'Sensors', description: 'REV Absolute Encoder (DIO/PWM)', import: 'edu.wpi.first.wpilibj.DutyCycleEncoder', image: '../../images/image.png' },
-            { name: 'Laser Distance', category: 'Sensors', description: 'goBILDA/Generic (Analog)', import: 'edu.wpi.first.wpilibj.AnalogInput', image: '../../images/image.png' },
-            { name: 'LIDAR Lite v3', category: 'Sensors', description: 'Garmin LIDAR (I2C/PWM)', import: 'edu.wpi.first.wpilibj.I2C', image: '../../images/image.png' },
-            { name: '9-Axis IMU', category: 'Sensors', description: 'Generic IMU (I2C)', import: 'edu.wpi.first.wpilibj.I2C', image: '../../images/image.png' },
-            { name: 'Absolute IMU Fusion', category: 'Sensors', description: 'BNO055/Generic (I2C)', import: 'edu.wpi.first.wpilibj.I2C', image: '../../images/image.png' },
-
-            // --- Pneumatics & Actuators ---
-            { name: 'DoubleSolenoid', category: 'Pneumatics', description: 'Double Acting Cylinder Control', import: 'edu.wpi.first.wpilibj.DoubleSolenoid', image: '../../images/image.png' },
-            { name: 'Solenoid', category: 'Pneumatics', description: 'Single Acting Cylinder Control', import: 'edu.wpi.first.wpilibj.Solenoid', image: '../../images/image.png' },
-            { name: 'Linear Actuator (12V)', category: 'Actuators', description: 'Heavy Duty Actuator (Req. Motor Controller)', import: 'edu.wpi.first.wpilibj.motorcontrol.Spark', image: '../../images/image.png' },
-            { name: 'Servo (2000 Series)', category: 'Actuators', description: 'goBILDA Dual Mode (PWM)', import: 'edu.wpi.first.wpilibj.Servo', image: '../../images/image.png' },
-
-            // --- LEDs & Misc ---
-            { name: 'CANdle', category: 'LEDs', description: 'CTRE LED Controller (CAN)', import: 'com.ctre.phoenix.led.CANdle', requiredVendor: 'Phoenix', vendorUrl: 'https://store.ctr-electronics.com/candle/', image: '../../images/image.png' },
-            { name: 'CANdi', category: 'Misc', description: 'CTRE Digital Input Module (CAN)', import: 'com.ctre.phoenix6.hardware.CANdi', requiredVendor: 'Phoenix6', vendorUrl: 'https://v6.docs.ctr-electronics.com/', image: '../../images/image.png' },
-            { name: 'Prism RGB Driver', category: 'LEDs', description: 'goBILDA LED Driver (PWM)', import: 'edu.wpi.first.wpilibj.PWM', image: '../../images/image.png' },
-            { name: 'DigitalInput', category: 'Sensors', description: 'Limit Switch/Digital (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: '../../images/image.png' },
-            { name: 'Touch Sensor', category: 'Sensors', description: 'Generic (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: '../../images/image.png' },
-            { name: 'Magnetic Limit', category: 'Sensors', description: 'Generic (DIO)', import: 'edu.wpi.first.wpilibj.DigitalInput', image: '../../images/image.png' }
-        ];
-
-        const devices = [];
-        const states = [];
-        let draggedDevice = null;
-        let installedVendors = [];
-
-        window.addEventListener('message', event => {
-            const message = event.data;
-            if (message.command === 'updateVendordeps') {
-                installedVendors = message.vendors || [];
-                renderDeviceTypes();
-            }
-        });
-
-        function filterDevices() {
-            const query = document.getElementById('deviceSearch').value.toLowerCase();
-            renderDeviceTypes(query);
-        }
-
-        function renderDeviceTypes(filter = '') {
-            const list = document.getElementById('deviceTypeList');
-            list.innerHTML = '';
-
-            const categories = {};
-            deviceTypes.forEach(dt => {
-                if (filter && !dt.name.toLowerCase().includes(filter) && !dt.category.toLowerCase().includes(filter)) {
-                    return;
-                }
-                if (!categories[dt.category]) categories[dt.category] = [];
-                categories[dt.category].push(dt);
-            });
-
-            Object.keys(categories).forEach(category => {
-                const header = document.createElement('div');
-                header.className = 'sidebar-header';
-                header.textContent = category;
-                header.style.fontSize = '0.75em';
-                header.style.marginTop = '10px';
-                list.appendChild(header);
-
-                categories[category].forEach(dt => {
-                    const item = document.createElement('div');
-                    item.className = 'device-type-item';
-
-                    // Check vendor requirement
-                    const isMissingVendor = dt.requiredVendor && !installedVendors.includes(dt.requiredVendor);
-
-                    if (isMissingVendor) {
-                        item.classList.add('disabled');
-                        item.title = `Requires ${dt.requiredVendor} library`;
-                    } else {
-                        item.draggable = true;
-                    }
-
-                    // Flex container for image + text
-                    item.style.display = 'flex';
-                    item.style.alignItems = 'center';
-                    item.style.gap = '10px';
-
-                    // Image
-                    const img = document.createElement('img');
-                    // Use a generic placeholder if image fails or is missing, but we set them in data.
-                    // Since we don't have real images yet, use a simple colored square data URI if image is not found, handled by onerror
-                    img.src = dt.image || '';
-                    img.onerror = () => { img.style.display = 'none'; }; // Hide if broken
-                    item.appendChild(img);
-
-                    const text = document.createElement('span');
-                    text.textContent = dt.name;
-                    item.appendChild(text);
-
-                    if (!isMissingVendor) {
-                        item.addEventListener('dragstart', (e) => {
-                            draggedDevice = dt.name;
-                            item.classList.add('dragging');
-                            e.dataTransfer.effectAllowed = 'copy';
-                            e.dataTransfer.setData('text/plain', dt.name); // Set data for nested drops
-                        });
-
-                        item.addEventListener('dragend', () => {
-                            item.classList.remove('dragging');
-                        });
-                    }
-
-                    item.addEventListener('click', (e) => {
-                        if (isMissingVendor) {
-                            showVendorPopup(dt, e);
-                        } else {
-                            showInfoPopup(dt, e);
-                        }
-                    });
-
-                    list.appendChild(item);
-                });
-            });
-        }
-
-        function showVendorPopup(deviceType, event) {
-            const popup = document.getElementById('infoPopup');
-            document.getElementById('popupTitle').innerHTML = `⚠️ Missing Library: ${deviceType.requiredVendor}`;
-            document.getElementById('popupDescription').innerHTML =
-                `To use <strong>${deviceType.name}</strong>, you need to install the <strong>${deviceType.requiredVendor}</strong> vendor library.<br><br>` +
-                `<button class="btn" onclick="installVendor('${deviceType.vendorUrl}')">Download Library</button>`;
-
-            document.getElementById('popupImport').style.display = 'none';
-
-            popup.style.display = 'block';
-            popup.style.left = Math.min(event.pageX + 10, window.innerWidth - 320) + 'px';
-            popup.style.top = (event.pageY + 10) + 'px';
-        }
-
-        window.installVendor = (url) => {
-            vscode.postMessage({ command: 'openVendorUrl', url: url });
-        };
-
-        const dropZone = document.getElementById('dropZone');
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-            dropZone.classList.add('drag-over');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            const deviceName = e.dataTransfer.getData('text/plain'); // Get data from dragstart
-            if (deviceName) {
-                const deviceType = deviceTypes.find(dt => dt.name === deviceName);
-                if (deviceType) {
-                    addDeviceOfType(deviceType);
-                }
-                draggedDevice = null; // Clear global draggedDevice if used
-            }
-        });
-
-        function showInfoPopup(deviceType, event) {
-            const popup = document.getElementById('infoPopup');
-            document.getElementById('popupTitle').textContent = deviceType.name;
-            document.getElementById('popupDescription').textContent = deviceType.description;
-            const importEl = document.getElementById('popupImport');
-            importEl.style.display = 'block';
-            importEl.innerHTML = `<strong>Import:</strong> <code>${deviceType.import}</code>`;
-
-            popup.style.display = 'block';
-            popup.style.left = Math.min(event.pageX + 10, window.innerWidth - 320) + 'px';
-            popup.style.top = (e.pageY + 10) + 'px';
-        }
-
-        window.closeInfoPopup = () => {
-            document.getElementById('infoPopup').style.display = 'none';
-        };
-
-        document.addEventListener('click', (e) => {
-            const popup = document.getElementById('infoPopup');
-            if (!e.target.closest('.device-type-item') && !e.target.closest('.info-popup')) {
-                popup.style.display = 'none';
-            }
-        });
-
-        function addDeviceOfType(deviceType) {
-            devices.push({
-                type: deviceType.name,
-                name: '',
-                id: '',
-                bus: 'rio',
-                needsController: deviceType.needsController || false,
-                validControllers: deviceType.validControllers || []
-            });
-            renderDevices();
-        }
-
-        function validateDependencies() {
-            // Deprecated global check in favor of per-row nested logic
-            return [];
-        }
-
-        function dropController(e, index) {
-            e.preventDefault();
-            e.stopPropagation();
-            const deviceName = e.dataTransfer.getData('text/plain');
-            const parentDevice = devices[index];
-
-            // Validate
-            const controllerType = deviceTypes.find(d => d.name === deviceName);
-            if (!controllerType) return;
-
-            // Check if valid controller for this motor
-            // Map generic names to specific check strings if needed, but using name directly for now
-            // The validControllers array in deviceTypes uses the 'name' property (e.g., 'TalonFXS') usually
-            if (parentDevice.validControllers && !parentDevice.validControllers.includes(deviceName)) {
-                // Use a more specific popup for this
-                const popup = document.getElementById('infoPopup');
-                document.getElementById('popupTitle').innerHTML = `Incompatible Controller`;
-                document.getElementById('popupDescription').innerHTML =
-                    `<strong>${parentDevice.name}</strong> requires one of these controllers: <strong>${parentDevice.validControllers.join(', ')}</strong>. You tried to add <strong>${deviceName}</strong>.`;
-                document.getElementById('popupImport').style.display = 'none';
-                popup.style.display = 'block';
-                popup.style.left = Math.min(e.pageX + 10, window.innerWidth - 320) + 'px';
-                popup.style.top = (e.pageY + 10) + 'px';
-                return;
-            }
-
-            // Assign controller
-            parentDevice.controller = {
-                type: deviceName,
-                id: 1, // Default ID
-                name: controllerType.name,
-                import: controllerType.import // Capture import path!
-            };
-
-            // Remove highlighting
-            const zone = document.getElementById(`nested-zone-${index}`);
-            if (zone) zone.classList.remove('drag-over');
-
-            renderDevices();
-        }
-
-        function removeNestedController(index) {
-            if (devices[index]) {
-                delete devices[index].controller;
-                renderDevices();
-            }
-        }
-
-        function allowDropController(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('drag-over');
-        }
-
-        function leaveDropController(e) {
-            e.currentTarget.classList.remove('drag-over');
-        }
-
-        function renderDevices() {
-            const table = document.getElementById('deviceTable');
-            table.innerHTML = '';
-
-            // Remove old warnings container as we validate per-item now
-            const warningContainer = document.getElementById('validationWarnings');
-            if (warningContainer) warningContainer.remove();
-
-            if (devices.length === 0) {
-                const row = document.createElement('tr');
-                row.innerHTML = '<td colspan="6" style="text-align:center; opacity:0.5; padding:20px;">Drag devices here to add them</td>';
-                table.appendChild(row);
-                return;
-            }
-
-            devices.forEach((device, index) => {
-                const row = document.createElement('tr');
-
-                // --- Helper Methods Check ---
-                // Use DEVICE_HELPERS for dynamic generation
-                let targetType = device.controller ? device.controller.type : device.type;
-                let helpersHtml = '';
-
-                const availableHelpers = DEVICE_HELPERS[targetType];
-                if (availableHelpers) {
-                    helpersHtml = `<div style="display:flex; flex-direction:column; gap:4px; font-size:0.85em;">`;
-                    if (availableHelpers.length > 3) {
-                        // Use a scrollable area if too many
-                        helpersHtml = `<div style="display:flex; flex-direction:column; gap:4px; font-size:0.85em; max-height:80px; overflow-y:auto; border:1px solid #333; padding:4px;">`;
-                    }
-
-                    availableHelpers.forEach(h => {
-                        const isChecked = device.helperMethods?.includes(h.id) ? 'checked' : '';
-                        helpersHtml += `<label style="white-space:nowrap;"><input type="checkbox" class="helper-method-checkbox" value="${h.id}" onchange="toggleHelper(${index}, '${h.id}', this.checked)" ${isChecked}> ${h.label}</label>`;
-                    });
-                    helpersHtml += `</div>`;
-                } else {
-                    helpersHtml = `<span style="opacity:0.5; font-size:0.8em">None available</span>`;
-                }
-
-                // --- Nested Controller Logic ---
-                let deviceCellContent = `<div style="display:flex; align-items:center; gap:8px;">${device.type}</div>`;
-
-                // If this device needs a controller
-                if (device.needsController) {
-                    if (device.controller) {
-                        // Controller Attached State
-                        deviceCellContent += `
-                            <div class="nested-device" style="margin-top:5px; font-size:0.9em;">
-                                <span style="display:flex; align-items:center;">
-                                    <span style="color:#4CAF50; margin-right:5px;">✔</span> 
-                                    ${device.controller.type} (ID: ${device.controller.id})
-                                </span>
-                                <button class="btn btn-icon" onclick="removeNestedController(${index})" style="font-size:0.8em;">✕</button>
+                <div class="config-grid">
+                    <!-- Column 1 -->
+                    <div>
+                        <div class="config-section">
+                            <h3>General</h3>
+                            <div class="form-row">
+                                <label>Control Mode</label>
+                                <select id="yamsControlMode">
+                                    <option value="CLOSED_LOOP">Closed Loop (PID)</option>
+                                    <option value="OPEN_LOOP">Open Loop (Voltage/Duty)</option>
+                                </select>
                             </div>
-                        `;
-                    } else {
-                        // Empty Drop Zone State
-                        const needsList = device.validControllers ? device.validControllers.join(' or ') : 'Controller';
-                        deviceCellContent += `
-                            <div id="nested-zone-${index}" class="nested-drop-zone" 
-                                 ondrop="dropController(event, ${index})" 
-                                 ondragover="allowDropController(event)" 
-                                 ondragleave="leaveDropController(event)">
-                                Drag ${needsList} here
+                            <div class="form-row">
+                                <label>Inverted</label>
+                                <select id="yamsInverted">
+                                    <option value="false">False</option>
+                                    <option value="true">True</option>
+                                </select>
                             </div>
-                        `;
-                    }
-                }
+                            <div class="form-row">
+                                <label>Idle Mode</label>
+                                <select id="yamsIdleMode">
+                                    <option value="BRAKE">Brake</option>
+                                    <option value="COAST">Coast</option>
+                                </select>
+                            </div>
+                        </div>
 
-                // ID Input: If has nested controller, specificy that the ID belongs to that controller
-                let idInput = `<input type="text" class="device-id" value="${device.controller ? device.controller.id : device.id}" onchange="updateDevice(${index}, '${device.controller ? 'controllerId' : 'id'}', this.value)" placeholder="1" style="text-align:center;">`;
+                        <div class="config-section" style="margin-top:15px">
+                            <h3>Physics & Gearing</h3>
+                            <div class="form-row">
+                                <label>Mechanism Circumference</label>
+                                <div style="display:flex; gap:5px;">
+                                    <input type="number" id="yamsCircumferenceValue" placeholder="e.g. 0.5" step="0.01">
+                                    <select id="yamsCircumferenceUnit" style="width:100px;">
+                                        <option value="Meters">Meters</option>
+                                        <option value="Inches">Inches</option>
+                                        <option value="Feet">Feet</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <label>Gearing (Mechanism to Rotor)</label>
+                                <input type="text" id="yamsGearing" placeholder="e.g. 3, 4 (Reduction Stages)"
+                                    title="Enter reduction stages separated by commas">
+                            </div>
+                            <div class="form-row">
+                                <label>Mass (kg, for Sim)</label>
+                                <input type="number" id="yamsMass" placeholder="5.0" step="0.1">
+                            </div>
+                        </div>
 
-                // Validation State for Row
-                if (device.needsController && !device.controller) {
-                    row.style.background = 'rgba(255, 100, 100, 0.05)';
-                    row.style.borderLeft = '3px solid red';
-                }
+                        <div class="config-section" style="margin-top:15px">
+                            <h3>Current & Ramps</h3>
+                            <div class="form-row">
+                                <label>Stator Limit (A)</label>
+                                <input type="number" id="yamsStatorLimit" value="40">
+                            </div>
+                            <div class="form-row">
+                                <label>Ramp Rate (Open Loop)</label>
+                                <input type="number" id="yamsOpenLoopRamp" value="0.25" step="0.01">
+                            </div>
+                            <div class="form-row">
+                                <label>Ramp Rate (Closed Loop)</label>
+                                <input type="number" id="yamsClosedLoopRamp" value="0.25" step="0.01">
+                            </div>
+                        </div>
+                    </div>
 
-                row.innerHTML = `
-                    <td style="vertical-align:top;">${deviceCellContent}</td>
-                    <td style="vertical-align:top;"><input type="text" class="device-name" value="${device.name}" onchange="updateDevice(${index}, 'name', this.value)" placeholder="motorName"></td>
-                    <td style="vertical-align:top;">${idInput}</td>
-                    <td style="vertical-align:top;"><input type="text" class="device-bus" value="${device.bus}" onchange="updateDevice(${index}, 'bus', this.value)" placeholder="rio"></td>
-                    <td style="vertical-align:top;">${helpersHtml}</td>
-                    <td style="vertical-align:top;"><button class="btn btn-icon" onclick="deleteDevice(${index})">🗑</button></td>
-                `;
-                table.appendChild(row);
-            });
-        }
+                    <!-- Column 2 -->
+                    <div>
+                        <div class="config-section">
+                            <h3>PID Controller (Feedback)</h3>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+                                <div><label>kP</label><input type="number" id="yamsKp" value="0.0" step="0.01"></div>
+                                <div><label>kI</label><input type="number" id="yamsKi" value="0.0" step="0.01"></div>
+                                <div><label>kD</label><input type="number" id="yamsKd" value="0.0" step="0.01"></div>
+                            </div>
+                            <div class="form-row" style="margin-top:10px;">
+                                <label>Max Velocity</label>
+                                <input type="number" id="yamsMaxVel" value="0.0">
+                            </div>
+                            <div class="form-row">
+                                <label>Max Acceleration</label>
+                                <input type="number" id="yamsMaxAccel" value="0.0">
+                            </div>
+                        </div>
 
-        // Update function handler
-        function updateDevice(index, field, value) {
-            if (field === 'controllerId' && devices[index].controller) {
-                devices[index].controller.id = value;
-            } else {
-                devices[index][field] = value;
-            }
-        }
+                        <div class="config-section" style="margin-top:15px">
+                            <h3>Feedforward</h3>
+                            <div class="form-row">
+                                <label>Type</label>
+                                <select id="yamsFfType">
+                                    <option value="Elevator">Elevator (G+SVGA)</option>
+                                    <option value="Arm">Arm (Cos+SVGA)</option>
+                                    <option value="Simple">Simple (SVGA)</option>
+                                </select>
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                <div><label>kS</label><input type="number" id="yamsKs" value="0.0" step="0.01"></div>
+                                <div><label>kG</label><input type="number" id="yamsKg" value="0.0" step="0.01"></div>
+                                <div><label>kV</label><input type="number" id="yamsKv" value="0.0" step="0.01"></div>
+                                <div><label>kA</label><input type="number" id="yamsKa" value="0.0" step="0.01"></div>
+                            </div>
+                        </div>
 
-        window.toggleHelper = (index, method, checked) => {
-            if (!devices[index].helperMethods) devices[index].helperMethods = [];
-            if (checked) {
-                if (!devices[index].helperMethods.includes(method)) devices[index].helperMethods.push(method);
-            } else {
-                devices[index].helperMethods = devices[index].helperMethods.filter(m => m !== method);
-            }
-        };
-
-        window.deleteDevice = (index) => {
-            devices.splice(index, 1);
-            renderDevices();
-        };
-
-        // --- Card Carousel & PID Logic ---
-        window.selectCard = (cardElement, value) => {
-            // Update hidden input
-            const input = document.getElementById('subsystemType');
-            input.value = value;
-
-            // Visual Update
-            const cards = document.querySelectorAll('.card');
-            cards.forEach(c => c.classList.remove('active'));
-            cardElement.classList.add('active');
-
-            togglePIDFields();
-        };
-
-        window.scrollCarousel = (direction) => {
-            const track = document.getElementById('cardTrack');
-            // card width (300) + gap (25) = 325
-            const scrollAmount = 325;
-            track.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
-        };
-
-        function togglePIDFields() {
-            const type = document.getElementById('subsystemType').value;
-            const pidSection = document.getElementById('pid-section');
-            if (type === 'pid' || type === 'profiled_pid') {
-                pidSection.style.display = 'block';
-            } else {
-                pidSection.style.display = 'none';
-            }
-
-            // Show/Hide Profiled fields
-            const profiledFields = document.querySelectorAll('.profiled-only');
-            profiledFields.forEach(el => el.style.display = (type === 'profiled_pid') ? 'block' : 'none');
-        }
-
-        // Initialize toggle
-        togglePIDFields();
-
-        // --- State Management ---
-        window.addState = () => {
-            const input = document.getElementById('newStateInput');
-            const val = input.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
-            if (val && !states.includes(val)) {
-                states.push(val);
-                renderStates();
-                input.value = '';
-            }
-        };
-
-        window.removeState = (val) => {
-            const idx = states.indexOf(val);
-            if (idx !== -1) {
-                states.splice(idx, 1);
-                renderStates();
-            }
-        };
-
-        function renderStates() {
-            const container = document.getElementById('statesList');
-            container.innerHTML = states.map(s => `
-                <div style="background:var(--button-bg); color:var(--button-fg); padding:4px 8px; border-radius:12px; font-size:0.85em; display:flex; align-items:center; gap:6px;">
-                    ${s}
-                    <span onclick="removeState('${s}')" style="cursor:pointer; font-weight:bold;">×</span>
+                        <div class="config-section" style="margin-top:15px; border-style:dashed;">
+                            <div
+                                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h3>Simulation Gains</h3>
+                                <div style="display:flex; gap:5px; align-items:center;">
+                                    <input type="checkbox" id="yamsUseSimGains"> <label for="yamsUseSimGains"
+                                        style="font-weight:normal; font-size:0.9em;">Enable</label>
+                                </div>
+                            </div>
+                            <div id="yamsSimGainsBody" style="display:none; opacity:0.8;">
+                                <p style="font-size:0.8em; margin:0 0 10px 0;">Overrides real gains in sim.</p>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px;">
+                                    <input type="number" id="yamsSimKp" placeholder="kP" step="0.01">
+                                    <input type="number" id="yamsSimKi" placeholder="kI" step="0.01">
+                                    <input type="number" id="yamsSimKd" placeholder="kD" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            `).join('');
-        }
 
-        // Toggle States Section
-        document.getElementById('enableStates').addEventListener('change', (e) => {
-            document.getElementById('statesSection').style.display = e.target.checked ? 'block' : 'none';
-        });
+                <div class="config-section" style="margin-top:20px;">
+                    <h3>Telemetry</h3>
+                    <div class="form-row">
+                        <label>Name</label>
+                        <input type="text" id="yamsTelemetryName" placeholder="e.g. ElevatorMotor">
+                    </div>
+                    <div class="form-row">
+                        <label>Verbosity</label>
+                        <select id="yamsVerbosity">
+                            <option value="HIGH">HIGH</option>
+                            <option value="LOW">LOW</option>
+                            <option value="NONE">NONE</option>
+                        </select>
+                    </div>
+                </div>
 
-        // Toggle kG based on Strategy
-        document.getElementById('pidStrategy').addEventListener('change', (e) => {
-            const strategy = e.target.value;
-            const kGRow = document.getElementById('kGRow');
-            if (strategy === 'elevator' || strategy === 'arm') {
-                kGRow.style.display = 'flex';
-            } else {
-                kGRow.style.display = 'none';
-            }
-        });
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeYamsModal()">Cancel</button>
+                <button class="btn" onclick="saveYamsConfig()">Save Configuration</button>
+            </div>
+        </div>
+    </div>
 
-        document.getElementById('generateBtn').addEventListener('click', () => {
-            const name = document.getElementById('subsystemName').value.trim();
-            if (!name) return;
-
-            // Collect Hardware
-            const hardwareList = [];
-            const rows = document.querySelectorAll('#deviceTable tr');
-            rows.forEach((row, index) => {
-                const nameInput = row.querySelector('.device-name');
-                const idInput = row.querySelector('.device-id');
-                const busInput = row.querySelector('.device-bus');
-
-                // Helper Methods handling
-                const helperMethods = [];
-                const checkboxes = row.querySelectorAll('.helper-method-checkbox');
-                checkboxes.forEach(cb => {
-                    if (cb.checked) helperMethods.push(cb.value);
-                });
-
-                if (nameInput && nameInput.value) {
-                    hardwareList.push({
-                        type: devices[index].type,
-                        name: nameInput.value,
-                        id: idInput ? idInput.value : '',
-                        bus: busInput ? busInput.value : 'rio',
-                        helperMethods: helperMethods,
-                        controller: devices[index].controller
-                    });
-                }
-            });
-
-            const type = document.getElementById('subsystemType').value;
-            const data = {
-                subsystemName: name,
-                subsystemType: (type === 'pid' || type === 'profiled_pid') ? 'pid' : 'generic',
-                autoAppend: document.getElementById('autoAppend').checked,
-                singleton: document.getElementById('createSingleton').checked,
-                baseClass: document.getElementById('baseClass').value,
-                hardware: hardwareList,
-                states: document.getElementById('enableStates').checked ? states : [],
-                saveConstants: document.getElementById('saveToConstants').checked
-            };
-
-            // Add PID config if it's a PID subsystem
-            if (type !== 'generic') {
-                data.pidConfig = {
-                    kP: document.getElementById('pidP').value,
-                    kI: document.getElementById('pidI').value,
-                    kD: document.getElementById('pidD').value,
-                    kS: document.getElementById('pidS').value,
-                    kV: document.getElementById('pidV').value,
-                    kA: document.getElementById('pidA').value,
-                    kG: document.getElementById('pidG').value,
-                    strategy: document.getElementById('pidStrategy').value,
-                    maxVelocity: document.getElementById('pidMaxVel').value,
-                    maxAcceleration: document.getElementById('pidMaxAccel').value,
-                    minOutput: document.getElementById('minOutput').value,
-                    maxOutput: document.getElementById('maxOutput').value,
-                    useTuneable: document.getElementById('useTuneable').checked,
-                    isProfiled: type === 'profiled_pid'
-                };
-            }
-
-            vscode.postMessage({ command: 'generate', data: data });
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 's') {
-                e.preventDefault();
-                document.getElementById('generateBtn').click();
-            }
-        });
-
-        document.getElementById('generatorsBtn').addEventListener('click', () => {
-            vscode.postMessage({ command: 'openGenerators' });
-        });
-
-        document.getElementById('refreshBtn').addEventListener('click', () => {
-            vscode.postMessage({ command: 'refresh' });
-            // Add a little animation or feedback
-            const btn = document.getElementById('refreshBtn');
-            btn.style.transform = 'rotate(360deg)';
-            btn.style.transition = 'transform 0.5s';
-            setTimeout(() => {
-                btn.style.transform = 'none';
-                btn.style.transition = 'none';
-            }, 500);
-        });
-
-        renderDeviceTypes();
-        renderDevices();
-    </script>
+    <script src="js/subsystemData.js"></script>
+    <script src="js/subsystemWizard.js"></script>
 </body>
 
 </html>

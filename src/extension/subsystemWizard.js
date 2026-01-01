@@ -249,6 +249,12 @@ async function generateSubsystem(data) {
     }
 
     // Generate Code
+    if (data.subsystemType === 'yams') {
+        const { generateYAMSSubsystem } = require('../generators/yams');
+        await generateYAMSSubsystem(data, rootPath);
+        return;
+    }
+
     const constantsFileName = getConstantsFileName();
     const constantsClassName = constantsFileName.replace(/\.java$/, '');
     data.constantsClassName = constantsClassName;

@@ -1,333 +1,212 @@
 const vscode = require('vscode');
 const path = require('path');
-const https = require('https');
-const Handlebars = require('handlebars');
 
-// Register Handlebars Helpers
-Handlebars.registerHelper('eq', (a, b) => a === b);
-Handlebars.registerHelper('ne', (a, b) => a !== b);
-Handlebars.registerHelper('lt', (a, b) => a < b);
-Handlebars.registerHelper('gt', (a, b) => a > b);
-Handlebars.registerHelper('le', (a, b) => a <= b);
-Handlebars.registerHelper('ge', (a, b) => a >= b);
-Handlebars.registerHelper('and', (a, b) => a && b);
-Handlebars.registerHelper('or', (a, b) => a || b);
-
-/**
- * Generates YAMS Subsystem files by fetching templates from yamgen.com.
- * @param {object} data - Configuration data from the UI.
- * @param {string} rootPath - Root path of the workspace.
+/* 
+ * Generates YAMS Subsystem Code using the local YAMS API.
+ * 
+ * Target Structure (Based on User Feedback):
+ * - Imports: yams.motorcontrollers.*, yams.gearing.*
+ * - Wrapper: yams.motorcontrollers.remote.TalonFXWrapper (etc.)
+ * - Config: SmartMotorControllerConfig builder pattern
  */
-async function generateYAMSSubsystem(data, rootPath) {
-  const {
-    subsystemName,
-    mechanismType
-  } = data;
 
+async function generateYAMSSubsystem(data, rootPath) {
+  const { subsystemName, hardware } = data;
   const folderName = subsystemName;
   const subsystemClass = subsystemName;
 
-  // Directory: src/main/java/frc/robot/subsystems/{Name}
   const targetDir = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'subsystems', folderName);
 
   // Ensure directory exists
   try {
     await vscode.workspace.fs.createDirectory(vscode.Uri.file(targetDir));
-  } catch (_) {
-    // Ignore if exists
+  } catch (_) { }
+
+  // Filter for motors with YAMS config
+  const yamsMotors = hardware.filter(h => h.yamsConfig);
+
+  // Warn but continue if no config (allows basic stub)
+  if (yamsMotors.length === 0) {
+    // vscode.window.showWarningMessage("No motors with YAMS Configuration found.");
   }
 
-  // Determine Template URLs
-  const typeLower = mechanismType.toLowerCase();
-  const subsystemUrl = `https://www.yamgen.com/templates/${typeLower}-subsystem.java.hbs`;
-  const simUrl = `https://www.yamgen.com/templates/${typeLower}-sim.java.hbs`;
+  // --- Imports ---
+  let imports = new Set([
+    'edu.wpi.first.wpilibj2.command.SubsystemBase',
+    'edu.wpi.first.wpilibj2.command.Command',
+    'edu.wpi.first.math.system.plant.DCMotor',
+    'yams.motorcontrollers.SmartMotorController',
+    'yams.motorcontrollers.SmartMotorControllerConfig',
+    'yams.motorcontrollers.SmartMotorControllerConfig.ControlMode',
+    'yams.motorcontrollers.SmartMotorControllerConfig.MotorMode',
+    'yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity',
+    'yams.gearing.MechanismGearing',
+    'yams.gearing.GearBox',
+    'static edu.wpi.first.units.Units.*'
+  ]);
 
-  try {
-    // 1. Prepare Data Context
-    const context = prepareContext(data);
+  // Add Measure types for safety
+  imports.add('edu.wpi.first.units.measure.Distance');
+  imports.add('edu.wpi.first.units.measure.Angle');
+  imports.add('edu.wpi.first.units.measure.Current');
+  imports.add('edu.wpi.first.units.measure.Time');
+  imports.add('edu.wpi.first.units.measure.LinearVelocity');
+  imports.add('edu.wpi.first.units.measure.LinearAcceleration');
 
-    // 2. Fetch and Render Subsystem
-    vscode.window.showInformationMessage(`Fetching template for ${mechanismType}...`);
-    const subsystemTemplate = await fetchTemplate(subsystemUrl);
-    const compiledSubsystem = Handlebars.compile(subsystemTemplate);
-    let subsystemCode = compiledSubsystem(context);
+  let classFields = [];
+  let constructorBody = [];
+  let periodicBody = [];
+  let simPeriodicBody = [];
 
-    // FIX: Update package declaration to match folder structure
-    subsystemCode = subsystemCode.replace(
-      /package\s+[^;]+;/g,
-      `package frc.robot.subsystems.${folderName};`
-    );
+  // --- Process Motors ---
+  yamsMotors.forEach((motor, index) => {
+    const config = motor.yamsConfig;
+    const configName = `${motor.name}Config`;
+    const wrapperName = `${motor.name}SmartMotorController`; // e.g. leftSparkSmartMotorController
+    const vendorMotorName = motor.name; // e.g. leftSpark
 
-    // --- Post-Processing for Tunable PID ---
-    if (context.controlType === 'Tunable') {
-      // Ensure the custom class exists
-      vscode.commands.executeCommand('frc-workbench.installCustomPID', 'profiled');
+    // 1. Config Object
+    let configCode = `    private final SmartMotorControllerConfig ${configName} = new SmartMotorControllerConfig(this)\n`;
+    configCode += `        .withTelemetry("${config.telemetryName || motor.name}Motor", TelemetryVerbosity.${config.verbosity})\n`;
+    configCode += `        .withControlMode(ControlMode.${config.controlMode})\n`;
+    configCode += `        .withMotorInverted(${config.inverted})\n`;
+    configCode += `        .withIdleMode(MotorMode.${config.idleMode})\n`;
 
-      // Regex Replacements
-      // 1. Imports
-      subsystemCode = subsystemCode.replace(
-        /import edu\.wpi\.first\.math\.controller\.ProfiledPIDController;/g,
-        'import frc.robot.lib.TuneableProfiledPIDController;\nimport frc.robot.lib.TuneableProfiledPIDController.FeedforwardType;'
-      );
+    // Physics
+    configCode += `        .withMechanismCircumference(${config.circumferenceUnit}.of(${config.circumferenceValue}))\n`;
+    configCode += `        .withGearing(new MechanismGearing(GearBox.fromReductionStages(${config.gearing})))\n`;
 
-      // 2. Class Field Declaration
-      subsystemCode = subsystemCode.replace(
-        /private ProfiledPIDController ([\w]+);/g,
-        'private TuneableProfiledPIDController $1;'
-      );
+    // Current/Ramp
+    configCode += `        .withStatorCurrentLimit(Amps.of(${config.statorLimit}))\n`;
+    configCode += `        .withOpenLoopRampRate(Seconds.of(${config.openLoopRamp}))\n`;
+    configCode += `        .withClosedLoopRampRate(Seconds.of(${config.closedLoopRamp}))\n`;
 
-      // 3. Instantiation
-      subsystemCode = subsystemCode.replace(
-        /(\w+)\s*=\s*new ProfiledPIDController\([^)]+\);/g,
-        (match, varName) => {
-          let ffType = 'FeedforwardType.STATIC';
-          if (mechanismType === 'Elevator') ffType = 'FeedforwardType.ELEVATOR';
-          if (mechanismType === 'Arm' || mechanismType === 'Pivot') ffType = 'FeedforwardType.ARM';
-          return `${varName} = new TuneableProfiledPIDController("${subsystemName}PID", kP, kI, kD, kS, kV, kA, kG, ${ffType}, constraints);`;
-        }
-      );
-
-      // 4. Comment out conflicting Feedforward declaration
-      subsystemCode = subsystemCode.replace(
-        /(private final \w*Feedforward feedforward = new \w*Feedforward\([^;]+;)/g,
-        '// $1 // Replaced by TuneablePID'
-      );
-
-      // 5. Replace feedforward.calculate usage with 0.0 (handled internally by TunablePID)
-      subsystemCode = subsystemCode.replace(
-        /feedforward\.calculate\([^)]+\)/g,
-        '0.0 /* Handled by TuneablePID */'
-      );
-    }
-
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.file(path.join(targetDir, `${subsystemClass}.java`)),
-      new TextEncoder().encode(subsystemCode)
-    );
-
-    // 3. Fetch and Render Sim (Optional/If exists)
-    try {
-      const simTemplate = await fetchTemplate(simUrl);
-      const compiledSim = Handlebars.compile(simTemplate);
-      let simCode = compiledSim(context);
-
-      // FIX: Update package declaration for Sim
-      simCode = simCode.replace(
-        /package\s+[^;]+;/g,
-        `package frc.robot.subsystems.${folderName};`
-      );
-
-      if (simCode && simCode.trim().length > 0) {
-        await vscode.workspace.fs.writeFile(
-          vscode.Uri.file(path.join(targetDir, `${subsystemClass}Sim.java`)),
-          new TextEncoder().encode(simCode)
-        );
-      }
-    } catch (simErr) {
-      console.log("Sim template might not exist or failed, skipping.", simErr);
-    }
-
-    vscode.window.showInformationMessage(`Successfully generated ${subsystemName} in subsystems/${folderName}`);
-
-  } catch (err) {
-    vscode.window.showErrorMessage(`Failed to generate YAMS subsystem: ${err.message}`);
-    console.error(err);
-  }
-}
-
-function fetchTemplate(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      if (res.statusCode !== 200) {
-        reject(new Error(`Failed to fetch template ${url}: Status ${res.statusCode}`));
-        return;
-      }
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => resolve(data));
-    }).on('error', (e) => reject(e));
-  });
-}
-
-function prepareContext(data) {
-  const { motorType, motorControllerType, canId, inverted, brakeMode, controlType } = data;
-
-  const imports = [];
-  let declaration = '';
-  let initialization = '';
-  // Method bodies
-  let getPositionMethod = '';
-  let getVelocityMethod = '';
-  let getVoltageMethod = '';
-  let getCurrentMethod = '';
-  let getTemperatureMethod = '';
-  let setPositionMethod = '';
-  let setVelocityMethod = '';
-  let setVoltageMethod = '';
-
-  let periodic = '';
-  let simPeriodic = '';
-  let dcMotorType = '';
-
-  // --- DC Motor Definitions ---
-  switch (motorType) {
-    case 'NEO': dcMotorType = 'DCMotor.getNEO(1)'; break;
-    case 'NEO550': dcMotorType = 'DCMotor.getNeo550(1)'; break;
-    case 'Krakenx60': dcMotorType = 'DCMotor.getKrakenX60(1)'; break;
-    case 'Vortex': dcMotorType = 'DCMotor.getNEOVortex(1)'; break;
-    case 'Minion': dcMotorType = 'new DCMotor(12, 3.1, 200.46, 1.43, Units.rotationsPerMinuteToRadiansPerSecond(7200), 1)'; break;
-    case 'Krakenx44': dcMotorType = 'new DCMotor(12, 4.05, 275, 1.4, Units.rotationsPerMinuteToRadiansPerSecond(7530), 1)'; break;
-    default: dcMotorType = 'DCMotor.getNEO(1)';
-  }
-
-  // --- Motor Controller Definitions ---
-  if (motorControllerType === 'SparkMax' || motorControllerType === 'SparkFlex') {
-    const clazz = motorControllerType === 'SparkMax' ? 'SparkMax' : 'SparkFlex';
-    imports.push(`com.revrobotics.spark.${clazz}`);
-    imports.push('com.revrobotics.spark.SparkLowLevel.MotorType');
-    imports.push('com.revrobotics.spark.config.SparkBaseConfig.IdleMode');
-    imports.push('com.revrobotics.spark.config.SparkMaxConfig');
-    imports.push('com.revrobotics.spark.SparkBase.ResetMode');
-    imports.push('com.revrobotics.spark.SparkBase.PersistMode');
-    imports.push('com.revrobotics.spark.SparkClosedLoopController'); // Needed?
-    imports.push('com.revrobotics.RelativeEncoder'); // Needed
-
-    declaration = `
-    private final ${clazz} motor;
-    private final RelativeEncoder encoder;
-    private final SparkClosedLoopController controller;
-    `;
-
-    initialization = `
-    motor = new ${clazz}(canID, MotorType.kBrushless);
-    encoder = motor.getEncoder();
-    controller = motor.getClosedLoopController();
-
-    var motorConfig = new com.revrobotics.spark.config.SparkMaxConfig();
-    motorConfig.idleMode(brakeMode ? IdleMode.kBrake : IdleMode.kCoast);
-    motorConfig.inverted(${inverted});
-    motorConfig.smartCurrentLimit(statorCurrentLimit);
-    
     // PID
-    motorConfig.closedLoop.pid(kP, kI, kD, com.revrobotics.spark.ClosedLoopSlot.kSlot0);
-    
-    // Encoder conversion
-    motorConfig.encoder.positionConversionFactor(1.0 / gearRatio);
-    motorConfig.encoder.velocityConversionFactor((1.0 / gearRatio) / 60.0);
+    configCode += `        .withClosedLoopController(${config.kP}, ${config.kI}, ${config.kD}, MetersPerSecond.of(${config.maxVel}), MetersPerSecondPerSecond.of(${config.maxAccel}))\n`;
 
-    motor.configure(motorConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
-        `;
+    // Feedforward
+    let ffClass = 'SimpleMotorFeedforward';
+    if (config.ffType === 'Elevator') { ffClass = 'ElevatorFeedforward'; imports.add('edu.wpi.first.math.controller.ElevatorFeedforward'); }
+    else if (config.ffType === 'Arm') { ffClass = 'ArmFeedforward'; imports.add('edu.wpi.first.math.controller.ArmFeedforward'); }
+    else { imports.add('edu.wpi.first.math.controller.SimpleMotorFeedforward'); }
 
-    getPositionMethod = 'return encoder.getPosition();';
-    getVelocityMethod = 'return encoder.getVelocity();';
-    getVoltageMethod = 'return motor.getAppliedOutput() * motor.getBusVoltage();';
-    getCurrentMethod = 'return motor.getOutputCurrent();';
-    getTemperatureMethod = 'return motor.getMotorTemperature();';
+    configCode += `        .withFeedforward(new ${ffClass}(${config.kS}, ${config.kG}, ${config.kV}, ${config.kA}))\n`;
 
-    setPositionMethod = `controller.setReference(positionRotations, com.revrobotics.spark.SparkBase.ControlType.kPosition);`;
-    setVelocityMethod = `controller.setReference(velocityRotations, com.revrobotics.spark.SparkBase.ControlType.kVelocity);`;
-    setVoltageMethod = `motor.setVoltage(voltage);`;
+    // Sim FF (using same for now as default)
+    configCode += `        .withSimFeedforward(new ${ffClass}(${config.kS}, ${config.kG}, ${config.kV}, ${config.kA}))`;
 
-  } else if (motorControllerType === 'TalonFX') {
-    imports.push('com.ctre.phoenix6.hardware.TalonFX');
-    imports.push('com.ctre.phoenix6.configs.TalonFXConfiguration');
-    imports.push('com.ctre.phoenix6.signals.NeutralModeValue');
-    imports.push('com.ctre.phoenix6.controls.PositionVoltage');
-    imports.push('com.ctre.phoenix6.controls.VelocityVoltage');
-    imports.push('com.ctre.phoenix6.controls.VoltageOut');
+    configCode += ";";
+    classFields.push(configCode);
 
-    declaration = `
-    private final TalonFX motor;
-    private final PositionVoltage positionControl = new PositionVoltage(0);
-    private final VelocityVoltage velocityControl = new VelocityVoltage(0);
-    private final VoltageOut voltageControl = new VoltageOut(0);
-    `;
+    // 2. Vendor Motor & Wrapper Instantiation
+    let wrapperClass = 'SparkWrapper';
+    let vendorClass = 'SparkMax';
+    let vendorImport = 'com.revrobotics.spark.SparkMax';
+    let yamsWrapperImport = 'yams.motorcontrollers.remote.SparkWrapper';
+    let motorTypeArg = 'MotorType.kBrushless';
+    let dcMotor = 'DCMotor.getNEO(1)'; // Default
 
-    initialization = `
-    motor = new TalonFX(canID);
-    var config = new TalonFXConfiguration();
-    config.MotorOutput.NeutralMode = brakeMode ? NeutralModeValue.Brake : NeutralModeValue.Coast;
-    config.MotorOutput.Inverted = ${inverted ? 'com.ctre.phoenix6.signals.InvertedValue.Clockwise_Positive' : 'com.ctre.phoenix6.signals.InvertedValue.CounterClockwise_Positive'};
-    config.CurrentLimits.StatorCurrentLimit = statorCurrentLimit;
-    if (enableSupplyLimit) {
-        config.CurrentLimits.SupplyCurrentLimit = supplyCurrentLimit;
-        config.CurrentLimits.SupplyCurrentLimitEnable = true;
+    if (motor.type.includes('TalonFX') || motor.type.includes('Kraken')) {
+      wrapperClass = 'TalonFXWrapper';
+      vendorClass = 'TalonFX';
+      vendorImport = 'com.ctre.phoenix6.hardware.TalonFX';
+      yamsWrapperImport = 'yams.motorcontrollers.remote.TalonFXWrapper';
+      dcMotor = 'DCMotor.getKrakenX60(1)';
+    } else if (motor.type.includes('Spark')) {
+      wrapperClass = 'SparkWrapper';
+      vendorClass = 'SparkMax';
+      vendorImport = 'com.revrobotics.spark.SparkMax';
+      imports.add('com.revrobotics.spark.SparkLowLevel.MotorType');
+      yamsWrapperImport = 'yams.motorcontrollers.remote.SparkWrapper';
+      dcMotor = 'DCMotor.getNEO(1)';
     }
-    config.Slot0.kP = kP;
-    config.Slot0.kI = kI;
-    config.Slot0.kD = kD;
-    // Feedback
-    config.Feedback.SensorToMechanismRatio = gearRatio;
-    
-    motor.getConfigurator().apply(config);
-        `;
 
-    getPositionMethod = 'return motor.getPosition().getValue();';
-    getVelocityMethod = 'return motor.getVelocity().getValue();';
-    getVoltageMethod = 'return motor.getMotorVoltage().getValue();';
-    getCurrentMethod = 'return motor.getStatorCurrent().getValue();';
-    getTemperatureMethod = 'return motor.getDeviceTemp().getValue();';
+    imports.add(vendorImport);
+    imports.add(yamsWrapperImport);
 
-    setPositionMethod = `motor.setControl(positionControl.withPosition(positionRotations));`;
-    setVelocityMethod = `motor.setControl(velocityControl.withVelocity(velocityRotations));`;
-    setVoltageMethod = `motor.setControl(voltageControl.withOutput(voltage));`;
-  }
+    // Definition
+    classFields.push(`    private final ${vendorClass} ${vendorMotorName};`);
+    classFields.push(`    private final SmartMotorController ${wrapperName};`);
 
-  // --- Context Construction ---
-  return {
-    subsystemName: data.subsystemName,
-    ntKey: data.ntKey || data.subsystemName,
-    motorControllerImports: imports.map(i => `import ${i};`).join('\n'),
-    motorControllerType: data.motorControllerType,
-    motorType: data.motorType,
-    dcMotorType: dcMotorType,
-    canId: canId,
-    gearRatio: data.gearRatio,
-    pidValues: data.pidValues,
-    kS: data.kS,
-    kV: data.kV,
-    kA: data.kA,
-    kG: data.kG,
-    maxVelocity: data.maxVelocity,
-    maxAcceleration: data.maxAcceleration,
-    brakeMode: brakeMode,
-    inverted: inverted,
-    enableSoftLimits: false,
-    enableStatorLimit: true,
-    statorCurrentLimit: data.statorCurrentLimit,
-    enableSupplyLimit: true,
-    supplyCurrentLimit: data.supplyCurrentLimit,
+    // Constructor Init
+    if (vendorClass === 'SparkMax') {
+      constructorBody.push(`        ${vendorMotorName} = new ${vendorClass}(${motor.id}, ${motorTypeArg});`);
+    } else {
+      constructorBody.push(`        ${vendorMotorName} = new ${vendorClass}(${motor.id}, "${motor.bus}");`);
+    }
 
-    // Sim params
-    mass: data.mass || data.armMass,
-    drumRadius: data.drumRadius,
-    hardLimitMin: data.minHeight || data.minAngle,
-    hardLimitMax: data.maxHeight || data.maxAngle,
-    distPerRot: 1.0,
-    startingHeight: 0.0,
+    constructorBody.push(`        ${wrapperName} = new ${wrapperClass}(${vendorMotorName}, ${dcMotor}, ${configName});`);
 
-    // Methods
-    getPositionMethod,
-    getVelocityMethod,
-    getVoltageMethod,
-    getCurrentMethod,
-    getTemperatureMethod,
-    setPositionMethod,
-    setVelocityMethod,
-    setVoltageMethod,
+    // Periodic Updates
+    periodicBody.push(`        ${wrapperName}.updateTelemetry();`);
+    simPeriodicBody.push(`        ${wrapperName}.simIterate();`);
 
-    // Boilerplate injections
-    motorControllerDeclaration: declaration,
-    motorControllerInitialization: initialization,
-    motorControllerPeriodic: periodic,
-    motorControllerSimulationPeriodic: simPeriodic,
+    // Helper Methods Generation (based on motor.helperMethods)
+    if (motor.helperMethods && Array.isArray(motor.helperMethods)) {
+      if (motor.helperMethods.includes('setSpeed')) {
+        // SmartMotorController uses setDutyCycle for speed/%
+        classFields.push(`    public Command set${vendorMotorName}Speed(double speed) {\n        return run(() -> ${wrapperName}.setDutyCycle(speed))\n            .withName("Set ${vendorMotorName} Speed");\n    }`);
+      }
+      if (motor.helperMethods.includes('stop')) {
+        classFields.push(`    public Command stop${vendorMotorName}() {\n        return run(() -> ${wrapperName}.setDutyCycle(0))\n            .withName("Stop ${vendorMotorName}");\n    }`);
+      }
+      if (motor.helperMethods.includes('getPosition')) {
+        classFields.push(`    public double get${vendorMotorName}Position() {\n        return ${wrapperName}.getMechanismPosition().in(Rotations);\n    }`);
+      }
+      if (motor.helperMethods.includes('getVelocity')) {
+        classFields.push(`    public double get${vendorMotorName}Velocity() {\n        return ${wrapperName}.getMechanismVelocity().in(RotationsPerSecond);\n    }`);
+      }
+      if (motor.helperMethods.includes('setVoltage')) {
+        classFields.push(`    public Command set${vendorMotorName}Voltage(double volts) {\n        return run(() -> ${wrapperName}.setVoltage(Volts.of(volts)))\n            .withName("Set ${vendorMotorName} Voltage");\n    }`);
+      }
+      if (motor.helperMethods.includes('getTemp')) {
+        classFields.push(`    public double get${vendorMotorName}Temp() {\n        return ${wrapperName}.getTemperature().in(Celsius);\n    }`);
+      }
+      // Add more helpers (setPosition, etc.) potentially mapped to wrapper methods
+      if (motor.helperMethods.includes('setPosition')) {
+        classFields.push(`    public Command set${vendorMotorName}Position(double positionMeters) {\n        return run(() -> ${wrapperName}.setPosition(Meters.of(positionMeters)))\n            .withName("Set ${vendorMotorName} Position");\n    }`);
+      }
+    }
+  });
 
-    // Control Type logic
-    wpilibControlled: controlType === 'WPILib' || controlType === 'Tunable',
-    controlType: controlType
-  };
+  // Assemble Content
+  const sortedImports = Array.from(imports).sort().map(i => `import ${i};`).join('\n');
+  const fieldsStr = classFields.join('\n\n');
+  const constructorStr = constructorBody.join('\n');
+  const periodicStr = periodicBody.join('\n');
+  const simPeriodicStr = simPeriodicBody.join('\n');
+
+  const fileContent = `package frc.robot.subsystems.${subsystemClass};
+
+${sortedImports}
+
+public class ${subsystemClass} extends SubsystemBase {
+
+${fieldsStr}
+
+    public ${subsystemClass}() {
+${constructorStr}
+    }
+
+    @Override
+    public void periodic() {
+        // This method will be called once per scheduler run
+${periodicStr}
+    }
+
+    @Override
+    public void simulationPeriodic() {
+${simPeriodicStr}
+    }
+}`;
+
+  // Write File
+  await vscode.workspace.fs.writeFile(
+    vscode.Uri.file(path.join(targetDir, `${subsystemClass}.java`)),
+    new TextEncoder().encode(fileContent)
+  );
+
+  vscode.window.showInformationMessage(`Generated YAMS Subsystem: ${subsystemClass}`);
 }
 
-module.exports = {
-  generateYAMSSubsystem
-};
+module.exports = { generateYAMSSubsystem };
