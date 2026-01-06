@@ -241,6 +241,12 @@
                                     <option value="Bag">Bag Motor</option>
                                     <option value="775pro">775pro</option>
                                 </select>
+                                <!-- Motor CAN ID -->
+                                <div style="margin-top: 10px;">
+                                    <label>Motor CAN ID</label>
+                                    <input type="number" id="yamsMotorId" class="wizard-input" placeholder="e.g. 1"
+                                        style="margin-top:5px;">
+                                </div>
                             </div>
 
                             <!-- Controller Drop Zone -->
@@ -280,12 +286,23 @@
                                     <option value="true">Has Follower</option>
                                 </select>
                             </div>
-                            <div style="flex: 1;" class="form-row">
-                                <label>Follower Inverted?</label>
-                                <select id="yamsFollowerInverted" class="wizard-input">
-                                    <option value="false">Same Direction</option>
-                                    <option value="true">Inverted</option>
-                                </select>
+                        </div>
+
+                        <!-- Follower Configuration Section (Hidden by default) -->
+                        <div id="followerConfig"
+                            style="display: none; margin-top: 15px; padding: 10px; border: 1px dashed var(--vscode-item-activeBk); border-radius: 5px;">
+                            <div style="display: flex; gap: 15px;">
+                                <div style="flex: 1;" class="form-row">
+                                    <label>Follower CAN ID</label>
+                                    <input type="number" id="yamsFollowerId" class="wizard-input" placeholder="e.g. 2">
+                                </div>
+                                <div style="flex: 1;" class="form-row">
+                                    <label>Follower Inverted?</label>
+                                    <div class="checkbox-item" style="margin-top: 25px;">
+                                        <input type="checkbox" id="yamsFollowerInverted">
+                                        <label for="yamsFollowerInverted">Inverted</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -308,14 +325,7 @@
                                 <option value="Flywheel">Flywheel</option>
                             </select>
                         </div>
-                        <div class="form-row" style="margin-top: 15px;">
-                            <label>Motor Version / Firmware Year</label>
-                            <select id="yamsMotorVersion" class="wizard-input">
-                                <option value="2025">2025</option>
-                                <option value="2024">2024</option>
-                                <option value="2023">2023</option>
-                            </select>
-                        </div>
+
                         <div class="form-row" style="margin-top: 15px;">
                             <label>Mechanism Gearing (Reduction Ratio)</label>
                             <input type="text" id="yamsGearing" placeholder="e.g. 10.5" value="1.0"

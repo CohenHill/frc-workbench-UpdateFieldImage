@@ -81,6 +81,7 @@ function activate(context) {
 
         panel.webview.onDidReceiveMessage(
             async message => {
+                console.log("Received message:", message.command);
                 switch (message.command) {
                     case 'generate':
                         await generateSubsystem(message.data);
@@ -250,8 +251,13 @@ async function generateSubsystem(data) {
 
     // Generate Code
     if (data.subsystemType === 'yams') {
-        const { generateYAMSSubsystem } = require('../generators/yams');
-        await generateYAMSSubsystem(data, rootPath);
+        try {
+            const { generateYAMSSubsystem } = require('../generators/yams');
+            await generateYAMSSubsystem(data, rootPath);
+        } catch (e) {
+            console.error(e);
+            vscode.window.showErrorMessage(`YAMS Generation Error: ${e.message}`);
+        }
         return;
     }
 
