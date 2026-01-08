@@ -195,8 +195,9 @@ async function generateSubsystem(data) {
     const rootPath = workspaceFolders[0].uri.fsPath;
     const subsystemsPath = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'subsystems');
 
-    // Check Vendor Deps
-    const installedVendors = await checkVendordeps(rootPath, data.hardware.map(h => h.import || ''));
+    // Check Vendor Deps (skip for YAMS which doesn't use hardware array)
+    const hardwareImports = data.hardware?.map(h => h.import || '') || [];
+    const installedVendors = await checkVendordeps(rootPath, hardwareImports);
 
     // YASS Specific Checks
     if (data.subsystemType === 'yagsl') {

@@ -1,6 +1,7 @@
 // @ts-nocheck
 /* eslint-disable no-undef */
-// @ts-ignore
+/* eslint-disable no-unused-vars */
+// @ts-nocheck
 const vscode = acquireVsCodeApi();
 
 const devices = [];
@@ -8,6 +9,155 @@ const states = [];
 const collapsedCategories = new Set(); // Global state for persistence
 let draggedDevice = null;
 let installedVendors = [];
+
+// Global function for inline onclick handlers in HTML
+function selectMechCard(element, mechType) {
+    console.log('selectMechCard called with:', mechType);
+
+    // Stop event propagation to prevent any parent handlers
+    if (event) {
+        event.stopPropagation();
+    }
+
+    // Remove active from all cards
+    document.querySelectorAll('.mech-card').forEach(card => {
+        card.classList.remove('active');
+    });
+
+    // Add active to selected
+    element.classList.add('active');
+
+    // Update hidden input
+    const input = document.getElementById('yamsMechType');
+    if (input) {
+        input.value = mechType;
+        console.log('Updated yamsMechType to:', mechType);
+    } else {
+        console.error('yamsMechType input not found!');
+    }
+
+    // Auto-fill subsystem name if empty
+    const nameInput = document.getElementById('yamsSubsystemName');
+    if (nameInput && !nameInput.value.trim()) {
+        nameInput.value = mechType;
+    }
+
+    console.log('Selected mechanism:', mechType);
+}
+
+// ==========================================
+// YAMS MOTOR DRAG-DROP HANDLERS
+// ==========================================
+
+function handleYamsDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    e.currentTarget.classList.add('drag-over');
+}
+
+function handleYamsDragLeave(e) {
+    e.currentTarget.classList.remove('drag-over');
+}
+
+function handleYamsControllerDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+
+    const deviceData = e.dataTransfer.getData('application/json');
+    if (!deviceData) {
+        showDropError(e.currentTarget, 'No device data found');
+        return;
+    }
+
+    const device = JSON.parse(deviceData);
+    console.log('Controller drop:', device);
+
+    // Validate: only accept Motor Controllers
+    if (device.category !== 'Motor Controllers') {
+        showDropError(e.currentTarget, 'Only Motor Controllers can be dropped here');
+        return;
+    }
+
+    // Update hidden input
+    const input = document.getElementById('yamsController');
+    if (input) {
+        input.value = device.name;
+    }
+
+    // Update drop zone to show selected item
+    updateDropZoneContent(e.currentTarget, device, 'yamsControllerDropZone');
+}
+
+function handleYamsMotorDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+
+    const deviceData = e.dataTransfer.getData('application/json');
+    if (!deviceData) {
+        showDropError(e.currentTarget, 'No device data found');
+        return;
+    }
+
+    const device = JSON.parse(deviceData);
+    console.log('Motor drop:', device);
+
+    // Validate: only accept Motors
+    if (device.category !== 'Motors') {
+        showDropError(e.currentTarget, 'Only Motors can be dropped here');
+        return;
+    }
+
+    // Update hidden input
+    const input = document.getElementById('yamsMotorType');
+    if (input) {
+        input.value = device.name;
+    }
+
+    // Update drop zone to show selected item
+    updateDropZoneContent(e.currentTarget, device, 'yamsMotorDropZone');
+}
+
+function showDropError(dropZone, message) {
+    dropZone.classList.add('error');
+    console.warn(message);
+    setTimeout(() => {
+        dropZone.classList.remove('error');
+    }, 500);
+}
+
+function updateDropZoneContent(dropZone, device, zoneId) {
+    dropZone.classList.add('filled');
+    dropZone.innerHTML = `
+        <div class="dropped-item">
+            <img class="dropped-item-icon" src="${device.icon || 'media/default.png'}" alt="${device.name}">
+            <div class="dropped-item-info">
+                <div class="dropped-item-name">${device.name}</div>
+                <div class="dropped-item-category">${device.category}</div>
+            </div>
+            <button class="dropped-item-remove" onclick="clearYamsDropZone('${zoneId}', '${device.category === 'Motors' ? 'yamsMotorType' : 'yamsController'}')">✕</button>
+        </div>
+    `;
+}
+
+function clearYamsDropZone(zoneId, inputId) {
+    const dropZone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+
+    if (dropZone) {
+        dropZone.classList.remove('filled');
+        const isMotor = zoneId === 'yamsMotorDropZone';
+        dropZone.innerHTML = `
+            <div class="drop-zone-content">
+                <span class="drop-zone-icon">${isMotor ? '⚙️' : '⚡'}</span>
+                <span class="drop-zone-text">Drag a ${isMotor ? 'Motor' : 'Motor Controller'} here</span>
+            </div>
+        `;
+    }
+
+    if (input) {
+        input.value = '';
+    }
+}
 
 // @ts-ignore
 window.addEventListener('message', event => {
@@ -156,6 +306,12 @@ function renderDeviceTypes(filter = '') {
                     item.classList.add('dragging');
                     e.dataTransfer.effectAllowed = 'copy';
                     e.dataTransfer.setData('text/plain', dt.name);
+                    // Set JSON data for YAMS drop zones
+                    e.dataTransfer.setData('application/json', JSON.stringify({
+                        name: dt.name,
+                        category: dt.category,
+                        icon: dt.image || 'media/default.png'
+                    }));
                 });
 
                 item.addEventListener('dragend', () => {
@@ -886,10 +1042,23 @@ function toggleFormSections() {
 // ==========================================
 
 let currentWizardStep = 1;
-const totalWizardSteps = 10;
+const totalWizardSteps = 5;
 
 window.nextWizardStep = () => {
+    console.log('nextWizardStep called. currentWizardStep:', currentWizardStep);
+
+    // Validate step 1: require mechanism selection
+    if (currentWizardStep === 1) {
+        const mechType = document.getElementById('yamsMechType')?.value;
+        console.log('Step 1 validation - mechType:', mechType);
+        if (!mechType) {
+            alert('Please select a mechanism type before proceeding.');
+            return;
+        }
+    }
+
     if (currentWizardStep < totalWizardSteps) {
+        console.log('Calling goToWizardStep with:', currentWizardStep + 1);
         goToWizardStep(currentWizardStep + 1);
     } else if (currentWizardStep === totalWizardSteps) {
         // On last step, clicking "Generate" should trigger generation
@@ -903,13 +1072,13 @@ window.prevWizardStep = () => {
     }
 };
 
-// YAMS Generate Function
+// YAMS Generate Function - Maps to Handlebars templates
 function triggerYamsGenerate() {
     console.log("Triggering YAMS Generate...");
 
     const name = document.getElementById('yamsSubsystemName').value.trim();
     if (!name) {
-        alert("Please enter a Subsystem Name on Page 1.");
+        alert("Please enter a Subsystem Name.");
         goToWizardStep(1);
         return;
     }
@@ -919,9 +1088,9 @@ function triggerYamsGenerate() {
         const el = document.getElementById(id);
         return el && el.value ? parseFloat(el.value) : def;
     };
-    const getString = (id) => {
+    const getString = (id, def = '') => {
         const el = document.getElementById(id);
-        return el ? el.value : '';
+        return el ? (el.value || def) : def;
     };
     const getBool = (id) => {
         const el = document.getElementById(id);
@@ -930,150 +1099,126 @@ function triggerYamsGenerate() {
         return el.value === 'true';
     };
 
+    const mechType = getString('yamsMechType', 'Arm');
+    const useSameSim = getBool('yamsUseSameSimGains');
+
+    // Build config matching Handlebars template expectations
     const yamsConfig = {
-        // Motor
-        motorType: getString('yamsMotorType'),
-        motorId: parseInt(getString('yamsMotorId') || '1'),
-        controllerType: getString('yamsController'),
-        hasFollower: getString('yamsHasFollower') === 'true',
-        followerId: parseInt(getString('yamsFollowerId') || '0'),
-        followerInverted: getBool('yamsFollowerInverted'),
+        // Mechanism type (determines which template to use)
+        mechType: mechType,
 
-        // Control
-        telemetryName: getString('yamsTelemetryName') || name,
-        verbosity: getString('yamsVerbosity') || 'HIGH',
-        controlMode: getString('yamsControlLoop') === 'OpenLoop' ? 'DUTY_CYCLE' : 'POSITION',
+        // Motor Controller
+        motorControllerType: getString('yamsController', 'TalonFX'),
+        motorModel: getString('yamsMotorType', 'KrakenX60'),
+        canId: parseInt(getString('yamsMotorId', '1')),
         inverted: getBool('yamsMotorInverted'),
-        idleMode: getString('yamsIdleMode') || 'BRAKE',
+        idleMode: getString('yamsIdleMode', 'BRAKE'),
 
-        // Physics
-        gearing: getNum('yamsGearing', 1.0),
-        circumferenceValue: getNum('yamsCircumference', 0.1),
-        circumferenceUnit: 'Meters',
+        // Gearing & Limits
+        gearingStages: getString('yamsGearing', '1'),
+        currentLimit: getNum('yamsCurrentLimit', 40),
+        rampRate: getNum('yamsRampRate', 0.1),
 
-        // Current Limits
-        statorLimit: getNum('yamsStatorLimit', 80),
-        supplyLimit: getNum('yamsSupplyLimit', 40),
-        openLoopRamp: getNum('yamsOpenLoopRamp', 0),
-        closedLoopRamp: getNum('yamsClosedLoopRamp', 0),
+        // PID
+        pid: {
+            kP: getNum('yamsKp', 0.6),
+            kI: getNum('yamsKi', 0),
+            kD: getNum('yamsKd', 0.02)
+        },
+        simPid: {
+            kP: useSameSim ? getNum('yamsKp', 0.6) : getNum('yamsSimKp', 0.6),
+            kI: useSameSim ? getNum('yamsKi', 0) : getNum('yamsSimKi', 0),
+            kD: useSameSim ? getNum('yamsKd', 0.02) : getNum('yamsSimKd', 0.02)
+        },
 
-        // PID / Control
-        controlLoop: getString('yamsControlLoop'),
-        kP: getNum('yamsKp', 0),
-        kI: getNum('yamsKi', 0),
-        kD: getNum('yamsKd', 0),
-        kS: getNum('yamsKs', 0),
-        kV: getNum('yamsKv', 0),
-        kG: getNum('yamsKg', 0),
-        kA: getNum('yamsKa', 0),
-
-        // Profiling
-        profileType: getString('yamsProfileType'),
-        maxVel: getNum('yamsMaxVel', 0),
-        maxAccel: getNum('yamsMaxAccel', 0),
-
-        // Mechanism
-        mechType: getString('yamsMechType'),
-        ffType: getString('yamsMechType'), // Use mechanism type to determine FF type
+        // Feedforward
+        ff: {
+            kS: getNum('yamsKs', 0.2),
+            kG: getNum('yamsKg', 0.4),
+            kV: getNum('yamsKv', 1.1),
+            kA: getNum('yamsKa', 0)
+        },
+        simFf: {
+            kS: getNum('yamsKs', 0.2),
+            kG: getNum('yamsKg', 0.4),
+            kV: getNum('yamsKv', 1.1),
+            kA: getNum('yamsKa', 0)
+        },
 
         // Arm-specific
-        armLength: getNum('yamsArmLength', 0.75),
-        armMinAngle: getNum('yamsArmAngleMin', -90),
-        armMaxAngle: getNum('yamsArmAngleMax', 180),
-        armMass: getNum('yamsArmMass', 5.0),
+        armLength: getNum('yamsArmLength', 0.6),
+        minSoftLimit: getNum('yamsMinSoftLimit', -45),
+        maxSoftLimit: getNum('yamsMaxSoftLimit', 90),
+        minHardLimit: getNum('yamsMinHardLimit', -60),
+        maxHardLimit: getNum('yamsMaxHardLimit', 100),
+        startingAngle: getNum('yamsStartingAngle', 0),
+        armMass: getNum('yamsArmMass', 8),
+
+        // Pivot-specific (similar to arm)
+        pivotLength: getNum('yamsPivotLength', 0.3),
+        pivotMinAngle: getNum('yamsPivotMinAngle', -90),
+        pivotMaxAngle: getNum('yamsPivotMaxAngle', 90),
+        pivotStartAngle: getNum('yamsPivotStartAngle', 0),
+        pivotMass: getNum('yamsPivotMass', 4),
 
         // Elevator-specific
-        drumRadius: getNum('yamsDrumRadius', 0.02),
-        elevatorMinHeight: getNum('yamsElevatorMinHeight', 0),
-        elevatorMaxHeight: getNum('yamsElevatorMaxHeight', 1.5),
-        elevatorMass: getNum('yamsElevatorMass', 4.0),
+        mechanismCircumference: getNum('yamsMechCircumference', 0.1),
+        minHeight: getNum('yamsMinHeight', 0),
+        maxHeight: getNum('yamsMaxHeight', 1.5),
+        startingHeight: getNum('yamsStartingHeight', 0),
+        elevatorMass: getNum('yamsElevatorMass', 10),
 
-        // Flywheel-specific
-        flywheelMoI: getNum('yamsFlywheelMoI', 0.001),
+        // Shooter/Flywheel-specific
+        flywheelDiameter: getNum('yamsFlywheelDiameter', 4),
+        flywheelMass: getNum('yamsFlywheelMass', 2),
+        maxVelocity: getNum('yamsMaxVelocity', 6000),
 
-        // Sensor
-        sensorType: getString('yamsSensorType'),
-        startPosition: getNum('yamsStartPosition', 0),
-        encoderGearing: getNum('yamsEncoderGearing', 1.0),
-        encoderInverted: getBool('yamsEncoderInverted'),
-        encoderOffset: getNum('yamsEncoderOffset', 0)
+        // Swerve-specific
+        gyroType: getString('yamsGyroType', 'Pigeon2'),
+        gyroCanId: getNum('yamsGyroCanId', 0),
+        maxLinearSpeed: getNum('yamsMaxLinearSpeed', 4.5),
+        maxAngularSpeed: getNum('yamsMaxAngularSpeed', 12),
+        wheelDiameter: getNum('yamsWheelDiameter', 0.1016)
     };
 
     const data = {
         subsystemName: name,
         subsystemType: 'yams',
-        autoAppend: false,
-        singleton: false,
-        baseClass: 'SubsystemBase',
-        hardware: [{
-            name: 'primaryMotor',
-            type: yamsConfig.motorType,
-            id: yamsConfig.motorId,
-            bus: 'rio',
-            yamsConfig: yamsConfig,
-            helperMethods: []
-        }],
-        states: [],
-        saveConstants: false,
         yamsConfig: yamsConfig
     };
 
     console.log("Sending YAMS Generate message:", data);
-    console.log("=== YAMS CONFIG PROPERTIES ===");
-    console.log("Subsystem Name:", name);
-    console.log("Motor Type:", yamsConfig.motorType);
-    console.log("Motor ID:", yamsConfig.motorId);
-    console.log("Controller:", yamsConfig.controllerType);
-    console.log("Has Follower:", yamsConfig.hasFollower);
-    console.log("Follower ID:", yamsConfig.followerId);
-    console.log("Follower Inverted:", yamsConfig.followerInverted);
-    console.log("Telemetry Name:", yamsConfig.telemetryName);
-    console.log("Verbosity:", yamsConfig.verbosity);
-    console.log("Control Mode:", yamsConfig.controlMode);
-    console.log("Idle Mode:", yamsConfig.idleMode);
-    console.log("Gearing:", yamsConfig.gearing);
-    console.log("Circumference:", yamsConfig.circumferenceValue, yamsConfig.circumferenceUnit);
-    console.log("Stator Limit:", yamsConfig.statorLimit);
-    console.log("Supply Limit:", yamsConfig.supplyLimit);
-    console.log("Control Loop:", yamsConfig.controlLoop);
-    console.log("PID - kP:", yamsConfig.kP, "kI:", yamsConfig.kI, "kD:", yamsConfig.kD);
-    console.log("FF - kS:", yamsConfig.kS, "kV:", yamsConfig.kV, "kG:", yamsConfig.kG, "kA:", yamsConfig.kA);
-    console.log("Profile Type:", yamsConfig.profileType);
-    console.log("Max Vel:", yamsConfig.maxVel, "Max Accel:", yamsConfig.maxAccel);
     console.log("Mechanism Type:", yamsConfig.mechType);
-    if (yamsConfig.mechType === 'Arm') {
-        console.log("  Arm Length:", yamsConfig.armLength, "m");
-        console.log("  Arm Angles:", yamsConfig.armMinAngle, "to", yamsConfig.armMaxAngle, "deg");
-        console.log("  Arm Mass:", yamsConfig.armMass, "kg");
-    } else if (yamsConfig.mechType === 'Elevator') {
-        console.log("  Drum Radius:", yamsConfig.drumRadius, "m");
-        console.log("  Height Range:", yamsConfig.elevatorMinHeight, "to", yamsConfig.elevatorMaxHeight, "m");
-        console.log("  Carriage Mass:", yamsConfig.elevatorMass, "kg");
-    } else if (yamsConfig.mechType === 'Flywheel') {
-        console.log("  Moment of Inertia:", yamsConfig.flywheelMoI, "kg·m²");
-    }
-    console.log("Sensor Type:", yamsConfig.sensorType);
-    console.log("Start Position:", yamsConfig.startPosition);
-    console.log("==============================");
+    console.log("Motor:", yamsConfig.motorControllerType, yamsConfig.motorModel, "CAN ID:", yamsConfig.canId);
     vscode.postMessage({ command: 'generate', data: data });
 }
 
 function goToWizardStep(stepNum) {
+    console.log(`goToWizardStep called with stepNum: ${stepNum}, currentWizardStep was: ${currentWizardStep}`);
     currentWizardStep = stepNum;
 
     // Update pages
     // @ts-ignore
     const pages = document.querySelectorAll('.wizard-page');
+    console.log(`Found ${pages.length} wizard pages`);
     pages.forEach(page => {
         page.classList.remove('active');
-        if (page.getAttribute('data-page') === String(stepNum)) {
+        const pageNum = page.getAttribute('data-page');
+        console.log(`Page ${pageNum}: checking if equals ${stepNum}`);
+        if (pageNum === String(stepNum)) {
             page.classList.add('active');
+            console.log(`Activated page ${pageNum}`);
         }
     });
 
-    // Update Visibility for Mechanism Config
-    if (stepNum === 9 && typeof window.updateMechVisibility === 'function') {
-        window.updateMechVisibility();
+    // Update Visibility for Mechanism Config on Step 3
+    if (stepNum === 3) {
+        updateMechConfigVisibility();
+    }
+
+    // Update Review page on Step 5
+    if (stepNum === 5) {
+        updateReviewPage();
     }
 
     // Update step indicators
@@ -1109,37 +1254,7 @@ function goToWizardStep(stepNum) {
         }
     }
 
-    if (stepNum === 10) {
-        // Populate Review Page
-        // @ts-ignore
-        const name = document.getElementById('yamsSubsystemName').value || 'Untitled';
-        // @ts-ignore
-        const type = document.getElementById('yamsMechType').value;
-        // @ts-ignore
-        const motor = document.getElementById('yamsMotorType').value;
-        // @ts-ignore
-        const loop = document.getElementById('yamsControlLoop').value;
-        // @ts-ignore
-        const profile = document.getElementById('yamsProfileType').value;
-        // @ts-ignore
-        const sensor = document.getElementById('yamsSensorType').value;
-
-        // @ts-ignore
-        document.getElementById('reviewName').textContent = name;
-        // @ts-ignore
-        document.getElementById('reviewType').textContent = type;
-        // @ts-ignore
-        // @ts-ignore
-        const mId = document.getElementById('yamsMotorId').value || '?';
-        const fId = document.getElementById('yamsFollowerId').value || '?';
-        document.getElementById('reviewMotor').textContent = `${motor} (ID: ${mId})` +
-            (document.getElementById('yamsHasFollower').value === 'true' ? ` + Follower (ID: ${fId})` : '');
-        // @ts-ignore
-        // @ts-ignore
-        document.getElementById('reviewControl').textContent = `${loop} + ${profile}`;
-        // @ts-ignore
-        document.getElementById('reviewSensor').textContent = sensor;
-    }
+    // Review page is now handled by updateReviewPage()
 
     if (stepIndicator) stepIndicator.textContent = String(stepNum);
 }
@@ -1156,17 +1271,10 @@ document.addEventListener('click', (e) => {
     // @ts-ignore
     if (!target || typeof target.closest !== 'function') return;
 
-    // Next Button
-    if (target.closest('.wizard-btn-next')) {
-        window.nextWizardStep();
-    }
+    // NOTE: Next and Prev buttons are handled by inline onclick in HTML
+    // Do NOT add handlers here to avoid double-triggering
 
-    // Prev Button
-    if (target.closest('.wizard-btn-prev')) {
-        window.prevWizardStep();
-    }
-
-    // Step Indicators
+    // Step Indicators (allow clicking on completed steps)
     const step = target.closest('.wizard-step');
     if (step) {
         const stepNum = parseInt(step.getAttribute('data-step') || '1');
@@ -1770,7 +1878,235 @@ window.updateMechVisibility = () => {
     }
 };
 
+// ==========================================
+// NEW FUNCTIONS FOR 5-STEP WIZARD
+// ==========================================
+
+// Mechanism Card Selection
+window.selectMechCard = (element, mechType) => {
+    // Remove active from all cards
+    document.querySelectorAll('.mech-card').forEach(card => {
+        card.classList.remove('active');
+    });
+
+    // Add active to selected
+    element.classList.add('active');
+    console.log("Hello World");
+
+    // Update hidden input
+    const input = document.getElementById('yamsMechType');
+    if (input) {
+        input.value = mechType;
+        console.log('Updated yamsMechType to:', mechType);
+    } else {
+        console.error('yamsMechType input not found!');
+    }
+
+    // Auto-fill subsystem name if empty
+    const nameInput = document.getElementById('yamsSubsystemName');
+    if (nameInput && !nameInput.value.trim()) {
+        nameInput.value = mechType;
+    }
+
+    console.log('Selected mechanism:', mechType);
+
+    // Update config visibility immediately (in case we are revisiting the step)
+    if (typeof window.updateMechConfigVisibility === 'function') {
+        window.updateMechConfigVisibility();
+    }
+};
+
+// Initiate Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("Subsystem Wizard: DOMContentLoaded - Attaching Listeners");
+
+    // Mechanism Card Selection
+    const mechCards = document.querySelectorAll('.mech-card');
+    if (mechCards.length === 0) {
+        console.warn("Subsystem Wizard: No mechanism cards found!");
+    }
+
+    mechCards.forEach(card => {
+        card.onclick = (e) => {
+            // Use onclick to avoid multiple listener accumulation if script re-runs
+            const mechType = card.getAttribute('data-type');
+            if (mechType) {
+                window.selectMechCard(card, mechType);
+            }
+        };
+    });
+
+    // Toggle sim gains visibility
+    const checkbox = document.getElementById('yamsUseSameSimGains');
+    const simSection = document.getElementById('simGainsSection');
+
+    if (checkbox && simSection) {
+        checkbox.addEventListener('change', () => {
+            simSection.style.display = checkbox.checked ? 'none' : 'block';
+        });
+    }
+
+    console.log("Subsystem Wizard: Event Listeners Attached");
+});
+
+// Since the script might load after DOMContentLoaded, also run immediately if ready
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    // Manually trigger the listener attachment logic if DOM is already ready
+    // We can't re-dispatch DOMContentLoaded, so we inline the logic or extract a function.
+    // Let's rely on the user interface refreshing or the script running once.
+    // But for safety, let's just run the selectors now too.
+    const mechCards = document.querySelectorAll('.mech-card');
+    mechCards.forEach(card => {
+        card.onclick = (e) => {
+            const mechType = card.getAttribute('data-type');
+            if (mechType) {
+                window.selectMechCard(card, mechType);
+            }
+        };
+    });
+}
+
+// Update mechanism config section visibility on Step 3
+function updateMechConfigVisibility() {
+    const mechType = document.getElementById('yamsMechType')?.value || 'Arm';
+
+    // Hide all config sections
+    const sections = ['armConfigSection', 'pivotConfigSection', 'elevatorConfigSection', 'shooterConfigSection', 'swerveConfigSection'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    // Show the appropriate section
+    const mechIcons = { Arm: '🦾', Pivot: '🔄', Elevator: '📐', Shooter: '🎯', SwerveDrive: '🚗' };
+    const mechTitles = {
+        Arm: 'Arm Configuration',
+        Pivot: 'Pivot Configuration',
+        Elevator: 'Elevator Configuration',
+        Shooter: 'Shooter/Flywheel Configuration',
+        SwerveDrive: 'Swerve Drive Configuration'
+    };
+    const mechDescs = {
+        Arm: 'Configure your arm mechanism parameters.',
+        Pivot: 'Configure your pivot/wrist mechanism.',
+        Elevator: 'Configure your elevator/lift mechanism.',
+        Shooter: 'Configure your flywheel/shooter mechanism.',
+        SwerveDrive: 'Configure your swerve drivetrain.'
+    };
+
+    // Update header
+    const titleEl = document.getElementById('mechConfigTitle');
+    const descEl = document.getElementById('mechConfigDesc');
+    if (titleEl) titleEl.textContent = `${mechIcons[mechType] || '🔧'} ${mechTitles[mechType] || 'Configuration'}`;
+    if (descEl) descEl.textContent = mechDescs[mechType] || 'Configure your mechanism.';
+
+    // Map mechanism type to section ID
+    const sectionMap = {
+        Arm: 'armConfigSection',
+        Pivot: 'pivotConfigSection',
+        Elevator: 'elevatorConfigSection',
+        Shooter: 'shooterConfigSection',
+        Flywheel: 'shooterConfigSection',
+        SwerveDrive: 'swerveConfigSection'
+    };
+
+    const sectionId = sectionMap[mechType];
+    if (sectionId) {
+        const section = document.getElementById(sectionId);
+        if (section) section.style.display = 'block';
+    }
+
+    // Show/hide kG for velocity mechanisms (shooter doesn't use gravity feedforward)
+    const kGRow = document.getElementById('kGRow');
+    if (kGRow) {
+        kGRow.style.display = (mechType === 'Shooter' || mechType === 'Flywheel') ? 'none' : 'block';
+    }
+}
+
+// Update review page on Step 5
+function updateReviewPage() {
+    const name = document.getElementById('yamsSubsystemName')?.value || 'Untitled';
+    const mechType = document.getElementById('yamsMechType')?.value || 'Arm';
+    const controller = document.getElementById('yamsController')?.value || 'TalonFX';
+    const motor = document.getElementById('yamsMotorType')?.value || 'KrakenX60';
+    const canId = document.getElementById('yamsMotorId')?.value || '1';
+    const gearing = document.getElementById('yamsGearing')?.value || '1';
+    const currentLimit = document.getElementById('yamsCurrentLimit')?.value || '40';
+    const kP = document.getElementById('yamsKp')?.value || '0.6';
+    const kI = document.getElementById('yamsKi')?.value || '0';
+    const kD = document.getElementById('yamsKd')?.value || '0.02';
+
+    const mechIcons = { Arm: '🦾', Pivot: '🔄', Elevator: '📐', Shooter: '🎯', SwerveDrive: '🚗' };
+
+    // Update review elements
+    const reviewNameEl = document.getElementById('reviewName');
+    if (reviewNameEl) reviewNameEl.textContent = `${mechIcons[mechType] || ''} ${name}`;
+
+    const reviewMechTypeEl = document.getElementById('reviewMechType');
+    if (reviewMechTypeEl) reviewMechTypeEl.textContent = mechType;
+
+    const reviewControllerEl = document.getElementById('reviewController');
+    if (reviewControllerEl) reviewControllerEl.textContent = controller;
+
+    const reviewMotorEl = document.getElementById('reviewMotor');
+    if (reviewMotorEl) reviewMotorEl.textContent = motor;
+
+    const reviewCanIdEl = document.getElementById('reviewCanId');
+    if (reviewCanIdEl) reviewCanIdEl.textContent = canId;
+
+    const reviewGearingEl = document.getElementById('reviewGearing');
+    if (reviewGearingEl) reviewGearingEl.textContent = `${gearing}:1`;
+
+    const reviewCurrentLimitEl = document.getElementById('reviewCurrentLimit');
+    if (reviewCurrentLimitEl) reviewCurrentLimitEl.textContent = `${currentLimit}A`;
+
+    const reviewPIDEl = document.getElementById('reviewPID');
+    if (reviewPIDEl) reviewPIDEl.textContent = `kP=${kP}, kI=${kI}, kD=${kD}`;
+}
+
+// Update motor options based on controller selection
+window.updateMotorDefaults = () => {
+    const controller = document.getElementById('yamsController')?.value;
+    const motorSelect = document.getElementById('yamsMotorType');
+
+    if (!motorSelect) return;
+
+    // Clear and repopulate based on controller
+    if (controller === 'TalonFX' || controller === 'TalonFXS') {
+        motorSelect.innerHTML = `
+            <option value="KrakenX60">Kraken X60</option>
+            <option value="Falcon500">Falcon 500</option>
+        `;
+    } else if (controller === 'SparkMax') {
+        motorSelect.innerHTML = `
+            <option value="NEO">NEO 1.1</option>
+            <option value="NEO550">NEO 550</option>
+        `;
+    } else if (controller === 'SparkFlex') {
+        motorSelect.innerHTML = `
+            <option value="NeoVortex">NEO Vortex</option>
+            <option value="NEO">NEO 1.1</option>
+        `;
+    } else if (controller === 'Nova') {
+        motorSelect.innerHTML = `
+            <option value="NEO">NEO</option>
+            <option value="NeoVortex">NEO Vortex</option>
+        `;
+    } else {
+        // Default all motors
+        motorSelect.innerHTML = `
+            <option value="KrakenX60">Kraken X60</option>
+            <option value="Falcon500">Falcon 500</option>
+            <option value="NEO">NEO 1.1</option>
+            <option value="NeoVortex">NEO Vortex</option>
+            <option value="NEO550">NEO 550</option>
+        `;
+    }
+};
+
 // Initialize Guardrails (if module loaded)
 if (typeof window.initGuardrails === 'function') {
     window.initGuardrails();
 }
+
+// Note: Initialization is now handled by the DOMContentLoaded listener above.

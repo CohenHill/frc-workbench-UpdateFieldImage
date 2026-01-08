@@ -1,245 +1,380 @@
 const vscode = require('vscode');
 const path = require('path');
+const Handlebars = require('handlebars');
 
-/* 
- * Generates YAMS Subsystem Code using the local YAMS API.
+/**
+ * YAMS Generator - Fetches Handlebars templates from GitHub and generates Java code
  * 
- * Target Structure (Based on User Feedback):
- * - Imports: yams.motorcontrollers.*, yams.gearing.*
- * - Wrapper: yams.motorcontrollers.remote.TalonFXWrapper (etc.)
- * - Config: SmartMotorControllerConfig builder pattern
+ * Templates hosted at: https://github.com/riteshrajas/YAMS_Gen
+ * - Arm.java.hbs       → yams.mechanisms.positional.Arm
+ * - Pivot.java.hbs     → yams.mechanisms.positional.Pivot
+ * - Elevator.java.hbs  → yams.mechanisms.positional.Elevator
+ * - Shooter.java.hbs   → yams.mechanisms.velocity.FlyWheel
+ * - SwerveDrive.java.hbs → yams.mechanisms.swerve.SwerveDrive
  */
 
-async function generateYAMSSubsystem(data, rootPath) {
-  const { subsystemName, hardware } = data;
-  const folderName = subsystemName;
-  const subsystemClass = subsystemName;
+// GitHub raw content base URL
+const TEMPLATE_BASE_URL = 'https://raw.githubusercontent.com/riteshrajas/YAMS_Gen/main';
 
-  const targetDir = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'subsystems', folderName);
+// Template mapping based on mechanism type
+const MECHANISM_TEMPLATES = {
+  'Arm': 'Arm.java.hbs',
+  'Pivot': 'Pivot.java.hbs',
+  'Elevator': 'Elevator.java.hbs',
+  'Flywheel': 'Shooter.java.hbs',
+  'Shooter': 'Shooter.java.hbs',
+  'SwerveDrive': 'SwerveDrive.java.hbs',
+  'Simple': 'Arm.java.hbs', // Fallback for simple mechanisms
+  'Generic': 'Arm.java.hbs' // Fallback
+};
 
-  // Ensure directory exists
+// Motor controller type mapping (wizard input → template value)
+const CONTROLLER_TYPE_MAP = {
+  'TalonFX': 'TalonFX',
+  'SparkMax': 'SparkMax',
+  'SparkFlex': 'SparkMax', // SparkFlex uses same wrapper pattern
+  'TalonFXS': 'TalonFXS',
+  'Nova': 'Nova',
+  'Kraken X60': 'TalonFX',
+  'Talon FX': 'TalonFX',
+  'Falcon 500': 'TalonFX'
+};
+
+// Motor model mapping (motor type → DCMotor suffix)
+const MOTOR_MODEL_MAP = {
+  'Kraken X60': 'KrakenX60',
+  'Talon FX': 'Falcon500',
+  'Falcon 500': 'Falcon500',
+  'NEO': 'NEO',
+  'NEO 1.1': 'NEO',
+  'Vortex': 'NeoVortex',
+  'NEO Vortex': 'NeoVortex',
+  'NEO550': 'NEO550',
+  'CIM': 'CIM',
+  'MiniCIM': 'MiniCIM',
+  'Bag': 'Bag',
+  '775pro': '775Pro'
+};
+
+// Register Handlebars helpers
+function registerHelpers() {
+  // 'eq' helper for equality comparison
+  Handlebars.registerHelper('eq', function (a, b) {
+    return a === b;
+  });
+
+  // 'neq' helper for inequality
+  Handlebars.registerHelper('neq', function (a, b) {
+    return a !== b;
+  });
+
+  // 'or' helper
+  Handlebars.registerHelper('or', function (a, b) {
+    return a || b;
+  });
+
+  // 'and' helper
+  Handlebars.registerHelper('and', function (a, b) {
+    return a && b;
+  });
+
+  // 'default' helper for fallback values
+  Handlebars.registerHelper('default', function (value, defaultValue) {
+    return value !== undefined && value !== null && value !== '' ? value : defaultValue;
+  });
+}
+
+/**
+ * Fetch a template from GitHub
+ * @param {string} templateName - Name of the template file (e.g., 'Arm.java.hbs')
+ * @returns {Promise<string>} - Template content
+ */
+async function fetchTemplate(templateName) {
+  const url = `${TEMPLATE_BASE_URL}/${templateName}`;
+
   try {
-    await vscode.workspace.fs.createDirectory(vscode.Uri.file(targetDir));
-  } catch (_) { }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch template: ${response.status} ${response.statusText}`);
+    }
+    return await response.text();
+  } catch (error) {
+    throw new Error(`Could not fetch template '${templateName}' from GitHub: ${error.message}`);
+  }
+}
 
-  // Filter for motors with YAMS config
-  const yamsMotors = hardware.filter(h => h.yamsConfig);
+/**
+ * Map wizard data to template-expected format for Arm mechanism
+ * The new wizard sends data with properties already matching template names
+ */
+function mapToArmData(data) {
+  const config = data.yamsConfig || {};
 
-  // Warn but continue if no config (allows basic stub)
-  if (yamsMotors.length === 0) {
-    vscode.window.showErrorMessage("Generation Failed: No YAMS-configured motors found. Please select a motor type and ensure configuration is valid.");
+  return {
+    subsystemName: data.subsystemName,
+    motorControllerType: config.motorControllerType || 'TalonFX',
+    motorModel: config.motorModel || 'KrakenX60',
+    canId: config.canId || 1,
+
+    inverted: config.inverted || false,
+    idleMode: config.idleMode || 'BRAKE',
+    gearingStages: config.gearingStages || '1',
+    currentLimit: config.currentLimit || 40,
+    rampRate: config.rampRate || 0.1,
+
+    // PID - passed directly from wizard
+    pid: config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
+    simPid: config.simPid || config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
+
+    // Feedforward - passed directly from wizard
+    ff: config.ff || { kS: 0.2, kG: 0.4, kV: 1.1, kA: 0 },
+    simFf: config.simFf || config.ff || { kS: 0.2, kG: 0.4, kV: 1.1, kA: 0 },
+
+    // Arm-specific
+    minSoftLimit: config.minSoftLimit || -45,
+    maxSoftLimit: config.maxSoftLimit || 90,
+    minHardLimit: config.minHardLimit || -60,
+    maxHardLimit: config.maxHardLimit || 100,
+    startingAngle: config.startingAngle || 0,
+    armLength: config.armLength || 0.6,
+    mass: config.armMass || 8
+  };
+}
+
+/**
+ * Map wizard data to template-expected format for Elevator mechanism
+ */
+function mapToElevatorData(data) {
+  const config = data.yamsConfig || {};
+
+  return {
+    subsystemName: data.subsystemName,
+    motorControllerType: config.motorControllerType || 'TalonFX',
+    motorModel: config.motorModel || 'KrakenX60',
+    canId: config.canId || 1,
+
+    inverted: config.inverted || false,
+    idleMode: config.idleMode || 'BRAKE',
+    gearingStages: config.gearingStages || '1',
+    currentLimit: config.currentLimit || 40,
+    rampRate: config.rampRate || 0.1,
+
+    mechanismCircumference: config.mechanismCircumference || 0.1,
+
+    // PID - passed directly from wizard
+    pid: config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
+    simPid: config.simPid || config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
+
+    // Feedforward - passed directly from wizard
+    ff: config.ff || { kS: 0.2, kG: 0.8, kV: 1.0, kA: 0 },
+    simFf: config.simFf || config.ff || { kS: 0.2, kG: 0.8, kV: 1.0, kA: 0 },
+
+    // Elevator-specific
+    startingHeight: config.startingHeight || 0,
+    minHeight: config.minHeight || 0,
+    maxHeight: config.maxHeight || 1.5,
+    mass: config.elevatorMass || 10
+  };
+}
+
+/**
+ * Map wizard data to template-expected format for Shooter/Flywheel mechanism
+ */
+function mapToShooterData(data) {
+  const config = data.yamsConfig || {};
+
+  return {
+    subsystemName: data.subsystemName,
+    motorControllerType: config.motorControllerType || 'TalonFX',
+    motorModel: config.motorModel || 'KrakenX60',
+    canId: config.canId || 1,
+
+    inverted: config.inverted || false,
+    gearingStages: config.gearingStages || '1',
+    currentLimit: config.currentLimit || 80,
+    rampRate: config.rampRate || 0.1,
+
+    // PID - passed directly from wizard (velocity control uses lower gains)
+    pid: config.pid || { kP: 0.1, kI: 0, kD: 0 },
+    simPid: config.simPid || config.pid || { kP: 0.1, kI: 0, kD: 0 },
+
+    // Feedforward - no kG for velocity mechanisms
+    ff: { kS: config.ff?.kS || 0.1, kV: config.ff?.kV || 0.12, kA: config.ff?.kA || 0 },
+    simFf: { kS: config.simFf?.kS || 0.1, kV: config.simFf?.kV || 0.12, kA: config.simFf?.kA || 0 },
+
+    // Flywheel-specific
+    flywheelDiameter: config.flywheelDiameter || 4,
+    mass: config.flywheelMass || 2,
+    maxVelocity: config.maxVelocity || 6000
+  };
+}
+
+/**
+ * Map wizard data to template-expected format for Pivot mechanism
+ */
+function mapToPivotData(data) {
+  const config = data.yamsConfig || {};
+
+  // Pivot uses arm-like data but from pivot-specific fields
+  return {
+    subsystemName: data.subsystemName,
+    motorControllerType: config.motorControllerType || 'TalonFX',
+    motorModel: config.motorModel || 'KrakenX60',
+    canId: config.canId || 1,
+
+    inverted: config.inverted || false,
+    idleMode: config.idleMode || 'BRAKE',
+    gearingStages: config.gearingStages || '1',
+    currentLimit: config.currentLimit || 40,
+    rampRate: config.rampRate || 0.1,
+
+    pid: config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
+    simPid: config.simPid || config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
+
+    ff: config.ff || { kS: 0.2, kG: 0.4, kV: 1.1, kA: 0 },
+    simFf: config.simFf || config.ff || { kS: 0.2, kG: 0.4, kV: 1.1, kA: 0 },
+
+    // Pivot-specific
+    minSoftLimit: config.pivotMinAngle || -90,
+    maxSoftLimit: config.pivotMaxAngle || 90,
+    minHardLimit: (config.pivotMinAngle || -90) - 10,
+    maxHardLimit: (config.pivotMaxAngle || 90) + 10,
+    startingAngle: config.pivotStartAngle || 0,
+    armLength: config.pivotLength || 0.3,
+    mass: config.pivotMass || 4
+  };
+}
+
+
+/**
+ * Main YAMS Subsystem Generator
+ * @param {Object} data - Data from the YAMS wizard
+ * @param {string} rootPath - Workspace root path
+ */
+async function generateYAMSSubsystem(data, rootPath) {
+  const { subsystemName, yamsConfig } = data;
+
+  if (!subsystemName) {
+    vscode.window.showErrorMessage('YAMS Generation Failed: Subsystem name is required.');
     return;
   }
 
-  // --- Imports ---
-  let imports = new Set([
-    'edu.wpi.first.wpilibj2.command.SubsystemBase',
-    'edu.wpi.first.wpilibj2.command.Command',
-    'edu.wpi.first.math.system.plant.DCMotor',
-    'yams.motorcontrollers.SmartMotorController',
-    'yams.motorcontrollers.SmartMotorControllerConfig',
-    'yams.motorcontrollers.SmartMotorControllerConfig.ControlMode',
-    'yams.motorcontrollers.SmartMotorControllerConfig.MotorMode',
-    'yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity',
-    'yams.gearing.MechanismGearing',
-    'yams.gearing.GearBox',
-    'static edu.wpi.first.units.Units.*'
-  ]);
+  // Determine mechanism type
+  const mechType = yamsConfig?.mechType || 'Arm';
+  const templateName = MECHANISM_TEMPLATES[mechType];
 
-  // Add Measure types for safety
-  imports.add('edu.wpi.first.units.measure.Distance');
-  imports.add('edu.wpi.first.units.measure.Angle');
-  imports.add('edu.wpi.first.units.measure.Current');
-  imports.add('edu.wpi.first.units.measure.Time');
-  imports.add('edu.wpi.first.units.measure.LinearVelocity');
-  imports.add('edu.wpi.first.units.measure.LinearAcceleration');
+  if (!templateName) {
+    vscode.window.showErrorMessage(`YAMS Generation Failed: Unknown mechanism type '${mechType}'.`);
+    return;
+  }
 
-  let classFields = [];
-  let constructorBody = [];
-  let periodicBody = [];
-  let simPeriodicBody = [];
+  // Show progress
+  await vscode.window.withProgress({
+    location: vscode.ProgressLocation.Notification,
+    title: `Generating YAMS ${mechType} Subsystem...`,
+    cancellable: false
+  }, async (progress) => {
+    try {
+      // Register Handlebars helpers
+      registerHelpers();
 
-  // --- Process Motors ---
-  yamsMotors.forEach((motor, index) => {
-    const config = motor.yamsConfig;
-    const configName = `${motor.name}Config`;
-    const wrapperName = `${motor.name}SmartMotorController`; // e.g. leftSparkSmartMotorController
-    const vendorMotorName = motor.name; // e.g. leftSpark
+      // Step 1: Fetch template from GitHub
+      progress.report({ message: 'Fetching template from GitHub...', increment: 20 });
+      const templateSource = await fetchTemplate(templateName);
 
-    // 1. Config Object
-    let configCode = `    private final SmartMotorControllerConfig ${configName} = new SmartMotorControllerConfig(this)\n`;
-    configCode += `        .withTelemetry("${config.telemetryName || motor.name}Motor", TelemetryVerbosity.${config.verbosity})\n`;
-    configCode += `        .withControlMode(ControlMode.${config.controlMode})\n`;
-    configCode += `        .withMotorInverted(${config.inverted})\n`;
-    configCode += `        .withIdleMode(MotorMode.${config.idleMode})\n`;
+      // Step 2: Compile template
+      progress.report({ message: 'Compiling template...', increment: 20 });
+      const template = Handlebars.compile(templateSource);
 
-    // Physics
-    configCode += `        .withMechanismCircumference(${config.circumferenceUnit}.of(${config.circumferenceValue}))\n`;
-    configCode += `        .withGearing(new MechanismGearing(GearBox.fromReductionStages(${config.gearing})))\n`;
-
-    // Follower
-    if (config.hasFollower) {
-      configCode += `        .withFollower(${config.followerId}, ${config.followerInverted})\n`;
-    }
-
-    // Sensors
-    if (config.sensorType && config.sensorType !== 'Internal') {
-      // Assuming API: .withRemoteSensor(type, id) or similar? 
-      // Since I don't check API, I will just generate a comment or best guess based on patterns
-      // But wait, the wizard collects sensorType, encoderGearing, encoderInverted, encoderOffset.
-      // Let's assume .withFeedbackSensor(...)
-      // configCode += `        .withFeedbackSensor(...)\n`; 
-      // Keeping it safe, maybe just log it as Todo if unknown, but user wants it generated.
-      // I will add a generic support assuming CANCoder
-      if (config.sensorType === 'CANCoder') {
-        // configCode += `        .withRemoteSensor(new CANCoder(...))\n`;
+      // Step 3: Map data based on mechanism type
+      progress.report({ message: 'Preparing data...', increment: 20 });
+      let templateData;
+      switch (mechType) {
+        case 'Arm':
+        case 'Simple':
+        case 'Generic':
+          templateData = mapToArmData(data);
+          break;
+        case 'Pivot':
+          templateData = mapToPivotData(data);
+          break;
+        case 'Elevator':
+          templateData = mapToElevatorData(data);
+          break;
+        case 'Flywheel':
+        case 'Shooter':
+          templateData = mapToShooterData(data);
+          break;
+        default:
+          templateData = mapToArmData(data);
       }
-    }
 
-    // Mechanism-specific configuration
-    if (config.mechType === 'Arm') {
-      imports.add('edu.wpi.first.math.util.Units');
-      configCode += `        // Arm Mechanism Configuration\n`;
-      configCode += `        .withArmMechanism(${config.armLength}, Units.degreesToRadians(${config.armMinAngle}), Units.degreesToRadians(${config.armMaxAngle}), ${config.armMass})\n`;
-    } else if (config.mechType === 'Elevator') {
-      configCode += `        // Elevator Mechanism Configuration\n`;
-      configCode += `        .withElevatorMechanism(${config.drumRadius}, ${config.elevatorMinHeight}, ${config.elevatorMaxHeight}, ${config.elevatorMass})\n`;
-    } else if (config.mechType === 'Flywheel') {
-      configCode += `        // Flywheel Mechanism Configuration\n`;
-      configCode += `        .withFlywheelMechanism(${config.flywheelMoI})\n`;
-    }
+      // Step 4: Render template
+      progress.report({ message: 'Generating code...', increment: 20 });
+      const generatedCode = template(templateData);
 
-    // Current/Ramp
-    configCode += `        .withStatorCurrentLimit(Amps.of(${config.statorLimit}))\n`;
-    configCode += `        .withOpenLoopRampRate(Seconds.of(${config.openLoopRamp}))\n`;
-    configCode += `        .withClosedLoopRampRate(Seconds.of(${config.closedLoopRamp}))\n`;
+      // Step 5: Write file
+      progress.report({ message: 'Writing file...', increment: 20 });
+      const targetDir = path.join(rootPath, 'src', 'main', 'java', 'frc', 'robot', 'subsystems');
+      const fileName = `${subsystemName}.java`;
+      const filePath = path.join(targetDir, fileName);
 
-    // PID
-    configCode += `        .withClosedLoopController(${config.kP}, ${config.kI}, ${config.kD}, MetersPerSecond.of(${config.maxVel}), MetersPerSecondPerSecond.of(${config.maxAccel}))\n`;
+      // Ensure directory exists
+      try {
+        await vscode.workspace.fs.createDirectory(vscode.Uri.file(targetDir));
+      } catch (_) { /* Directory may already exist */ }
 
-    // Feedforward
-    let ffClass = 'SimpleMotorFeedforward';
-    if (config.ffType === 'Elevator') { ffClass = 'ElevatorFeedforward'; imports.add('edu.wpi.first.math.controller.ElevatorFeedforward'); }
-    else if (config.ffType === 'Arm') { ffClass = 'ArmFeedforward'; imports.add('edu.wpi.first.math.controller.ArmFeedforward'); }
-    else { imports.add('edu.wpi.first.math.controller.SimpleMotorFeedforward'); }
+      // Write file
+      await vscode.workspace.fs.writeFile(
+        vscode.Uri.file(filePath),
+        new TextEncoder().encode(generatedCode)
+      );
 
-    configCode += `        .withFeedforward(new ${ffClass}(${config.kS}, ${config.kG}, ${config.kV}, ${config.kA}))\n`;
+      // Open the generated file
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
+      await vscode.window.showTextDocument(doc);
 
-    // Sim FF (using same for now as default)
-    configCode += `        .withSimFeedforward(new ${ffClass}(${config.kS}, ${config.kG}, ${config.kV}, ${config.kA}))`;
+      vscode.window.showInformationMessage(`✅ Generated YAMS ${mechType} Subsystem: ${fileName}`);
 
-    configCode += ";";
-    classFields.push(configCode);
-
-    // 2. Vendor Motor & Wrapper Instantiation
-    let wrapperClass = 'SparkWrapper';
-    let vendorClass = 'SparkMax';
-    let vendorImport = 'com.revrobotics.spark.SparkMax';
-    let yamsWrapperImport = 'yams.motorcontrollers.remote.SparkWrapper';
-    let motorTypeArg = 'MotorType.kBrushless';
-    let dcMotor = 'DCMotor.getNEO(1)'; // Default
-
-    if (motor.type.includes('TalonFX') || motor.type.includes('Kraken')) {
-      wrapperClass = 'TalonFXWrapper';
-      vendorClass = 'TalonFX';
-      vendorImport = 'com.ctre.phoenix6.hardware.TalonFX';
-      yamsWrapperImport = 'yams.motorcontrollers.remote.TalonFXWrapper';
-      dcMotor = 'DCMotor.getKrakenX60(1)';
-    } else if (motor.type.includes('Spark')) {
-      wrapperClass = 'SparkWrapper';
-      vendorClass = 'SparkMax';
-      vendorImport = 'com.revrobotics.spark.SparkMax';
-      imports.add('com.revrobotics.spark.SparkLowLevel.MotorType');
-      yamsWrapperImport = 'yams.motorcontrollers.remote.SparkWrapper';
-      dcMotor = 'DCMotor.getNEO(1)';
-    }
-
-    imports.add(vendorImport);
-    imports.add(yamsWrapperImport);
-
-    // Definition
-    classFields.push(`    private final ${vendorClass} ${vendorMotorName};`);
-    classFields.push(`    private final SmartMotorController ${wrapperName};`);
-
-    // Constructor Init
-    if (vendorClass === 'SparkMax') {
-      constructorBody.push(`        ${vendorMotorName} = new ${vendorClass}(${motor.id}, ${motorTypeArg});`);
-    } else {
-      constructorBody.push(`        ${vendorMotorName} = new ${vendorClass}(${motor.id}, "${motor.bus}");`);
-    }
-
-    constructorBody.push(`        ${wrapperName} = new ${wrapperClass}(${vendorMotorName}, ${dcMotor}, ${configName});`);
-
-    // Periodic Updates
-    periodicBody.push(`        ${wrapperName}.updateTelemetry();`);
-    simPeriodicBody.push(`        ${wrapperName}.simIterate();`);
-
-    // Helper Methods Generation (based on motor.helperMethods)
-    if (motor.helperMethods && Array.isArray(motor.helperMethods)) {
-      if (motor.helperMethods.includes('setSpeed')) {
-        // SmartMotorController uses setDutyCycle for speed/%
-        classFields.push(`    public Command set${vendorMotorName}Speed(double speed) {\n        return run(() -> ${wrapperName}.setDutyCycle(speed))\n            .withName("Set ${vendorMotorName} Speed");\n    }`);
-      }
-      if (motor.helperMethods.includes('stop')) {
-        classFields.push(`    public Command stop${vendorMotorName}() {\n        return run(() -> ${wrapperName}.setDutyCycle(0))\n            .withName("Stop ${vendorMotorName}");\n    }`);
-      }
-      if (motor.helperMethods.includes('getPosition')) {
-        classFields.push(`    public double get${vendorMotorName}Position() {\n        return ${wrapperName}.getMechanismPosition().in(Rotations);\n    }`);
-      }
-      if (motor.helperMethods.includes('getVelocity')) {
-        classFields.push(`    public double get${vendorMotorName}Velocity() {\n        return ${wrapperName}.getMechanismVelocity().in(RotationsPerSecond);\n    }`);
-      }
-      if (motor.helperMethods.includes('setVoltage')) {
-        classFields.push(`    public Command set${vendorMotorName}Voltage(double volts) {\n        return run(() -> ${wrapperName}.setVoltage(Volts.of(volts)))\n            .withName("Set ${vendorMotorName} Voltage");\n    }`);
-      }
-      if (motor.helperMethods.includes('getTemp')) {
-        classFields.push(`    public double get${vendorMotorName}Temp() {\n        return ${wrapperName}.getTemperature().in(Celsius);\n    }`);
-      }
-      // Add more helpers (setPosition, etc.) potentially mapped to wrapper methods
-      if (motor.helperMethods.includes('setPosition')) {
-        classFields.push(`    public Command set${vendorMotorName}Position(double positionMeters) {\n        return run(() -> ${wrapperName}.setPosition(Meters.of(positionMeters)))\n            .withName("Set ${vendorMotorName} Position");\n    }`);
-      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`YAMS Generation Failed: ${error.message}`);
+      console.error('YAMS Generation Error:', error);
     }
   });
-
-  // Assemble Content
-  const sortedImports = Array.from(imports).sort().map(i => `import ${i};`).join('\n');
-  const fieldsStr = classFields.join('\n\n');
-  const constructorStr = constructorBody.join('\n');
-  const periodicStr = periodicBody.join('\n');
-  const simPeriodicStr = simPeriodicBody.join('\n');
-
-  const fileContent = `package frc.robot.subsystems.${subsystemClass};
-
-${sortedImports}
-
-public class ${subsystemClass} extends SubsystemBase {
-
-${fieldsStr}
-
-    public ${subsystemClass}() {
-${constructorStr}
-    }
-
-    @Override
-    public void periodic() {
-        // This method will be called once per scheduler run
-${periodicStr}
-    }
-
-    @Override
-    public void simulationPeriodic() {
-${simPeriodicStr}
-    }
-}`;
-
-  // Write File
-  await vscode.workspace.fs.writeFile(
-    vscode.Uri.file(path.join(targetDir, `${subsystemClass}.java`)),
-    new TextEncoder().encode(fileContent)
-  );
-
-  vscode.window.showInformationMessage(`Generated YAMS Subsystem: ${subsystemClass}`);
 }
 
-module.exports = { generateYAMSSubsystem };
+/**
+ * Get available mechanism types and their descriptions
+ */
+function getAvailableMechanisms() {
+  return [
+    { id: 'Arm', name: 'Arm', description: 'Positional arm mechanism with angular control' },
+    { id: 'Pivot', name: 'Pivot', description: 'Positional pivot/wrist mechanism' },
+    { id: 'Elevator', name: 'Elevator', description: 'Linear elevator/lift mechanism' },
+    { id: 'Flywheel', name: 'Flywheel/Shooter', description: 'Velocity-controlled flywheel' },
+    { id: 'SwerveDrive', name: 'Swerve Drive', description: 'Holonomic swerve drive (advanced)' }
+  ];
+}
+
+/**
+ * Get the list of supported motor controllers
+ */
+function getSupportedControllers() {
+  return Object.keys(CONTROLLER_TYPE_MAP);
+}
+
+/**
+ * Get the list of supported motor types
+ */
+function getSupportedMotors() {
+  return Object.keys(MOTOR_MODEL_MAP);
+}
+
+module.exports = {
+  generateYAMSSubsystem,
+  getAvailableMechanisms,
+  getSupportedControllers,
+  getSupportedMotors,
+  TEMPLATE_BASE_URL,
+  fetchTemplate
+};
