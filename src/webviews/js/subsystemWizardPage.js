@@ -1112,7 +1112,13 @@ function triggerYamsGenerate() {
         motorModel: getString('yamsMotorType', 'KrakenX60'),
         canId: parseInt(getString('yamsMotorId', '1')),
         inverted: getBool('yamsMotorInverted'),
+        inverted: getBool('yamsMotorInverted'),
         idleMode: getString('yamsIdleMode', 'BRAKE'),
+
+        // Follower Config
+        hasFollower: getBool('yamsHasFollower'),
+        followerId: parseInt(getString('yamsFollowerId', '0')),
+        followerInverted: getBool('yamsFollowerInverted'),
 
         // Gearing & Limits
         gearingStages: getString('yamsGearing', '1'),
@@ -1323,13 +1329,6 @@ document.getElementById('yamsHasFollower').addEventListener('change', (e) => {
 
     if (hasFollower) {
         section.style.display = 'block';
-        // Prompt for ID
-        setTimeout(() => {
-            const id = window.prompt("Enter Follower Motor CAN ID:", "2");
-            if (id) {
-                document.getElementById('yamsFollowerId').value = id;
-            }
-        }, 50);
     } else {
         section.style.display = 'none';
     }
@@ -2020,6 +2019,12 @@ function updateMechConfigVisibility() {
     const kGRow = document.getElementById('kGRow');
     if (kGRow) {
         kGRow.style.display = (mechType === 'Shooter' || mechType === 'Flywheel') ? 'none' : 'block';
+    }
+
+    // Show/Hide Arm Diagram
+    const armImage = document.getElementById('armConfigImage');
+    if (armImage) {
+        armImage.style.display = (mechType === 'Arm') ? 'block' : 'none';
     }
 }
 

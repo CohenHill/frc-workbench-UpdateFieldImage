@@ -3,17 +3,17 @@ const path = require('path');
 const Handlebars = require('handlebars');
 
 /**
- * YAMS Generator - Fetches Handlebars templates from GitHub and generates Java code
+ * YAMS Generator - Fetches Handlebars templates from LOCAL DIRECTORY and generates Java code
  * 
- * Templates hosted at: https://github.com/riteshrajas/YAMS_Gen
- * - Arm.java.hbs       → yams.mechanisms.positional.Arm
- * - Pivot.java.hbs     → yams.mechanisms.positional.Pivot
- * - Elevator.java.hbs  → yams.mechanisms.positional.Elevator
- * - Shooter.java.hbs   → yams.mechanisms.velocity.FlyWheel
- * - SwerveDrive.java.hbs → yams.mechanisms.swerve.SwerveDrive
+ * Templates located in: src/templates/
+ * - Arm.java.hbs
+ * - Pivot.java.hbs
+ * - Elevator.java.hbs
+ * - Shooter.java.hbs
+ * - SwerveDrive.java.hbs
  */
 
-// GitHub raw content base URL
+// GitHub raw content base URL (Deprecated for local use, but kept for reference if needed)
 const TEMPLATE_BASE_URL = 'https://raw.githubusercontent.com/riteshrajas/YAMS_Gen/main';
 
 // Template mapping based on mechanism type
@@ -85,27 +85,43 @@ function registerHelpers() {
 }
 
 /**
- * Fetch a template from GitHub
+ * Fetch a template from LOCAL EXTENSION DIRECTORY
  * @param {string} templateName - Name of the template file (e.g., 'Arm.java.hbs')
  * @returns {Promise<string>} - Template content
  */
 async function fetchTemplate(templateName) {
-  const url = `${TEMPLATE_BASE_URL}/${templateName}`;
-
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch template: ${response.status} ${response.statusText}`);
-    }
-    return await response.text();
+    // Get extension context - we need to pass this or use a global access method?
+    // In this context, we usually receive context in activate, but this is a helper module.
+    // However, we can assume this script runs in node environment where vscode API functions work.
+    // The issue is getting the extension path.
+    // The rootPath passed to generateYAMSSubsystem is the WORKSPACE root.
+    // The templates are in the EXTENSION source.
+
+    // Quick fix: We can try to use relative path if we know where this file is relative to templates.
+    // This file is in src/generators/yams.js
+    // Templates are in src/templates/
+
+    // We can use __dirname if available in Node context of VS Code ext.
+    const templatesDir = path.join(__dirname, '..', 'templates');
+    const templatePath = path.join(templatesDir, templateName);
+
+    // Use vscode.workspace.fs to read? Or standard fs?
+    // Standard fs is safer for local files if we are in node.
+    // But vscode.workspace.fs works with VFS. Let's try vscode.workspace.fs first or fallback.
+    // Since __dirname gives a filesystem path, let's use vscode.workspace.fs with file URI.
+
+    const fileUri = vscode.Uri.file(templatePath);
+    const readData = await vscode.workspace.fs.readFile(fileUri);
+    return new TextDecoder().decode(readData);
+
   } catch (error) {
-    throw new Error(`Could not fetch template '${templateName}' from GitHub: ${error.message}`);
+    throw new Error(`Could not fetch template '${templateName}' from local '${path.join(__dirname, '..', 'templates')}': ${error.message}`);
   }
 }
 
 /**
  * Map wizard data to template-expected format for Arm mechanism
- * The new wizard sends data with properties already matching template names
  */
 function mapToArmData(data) {
   const config = data.yamsConfig || {};
@@ -122,11 +138,11 @@ function mapToArmData(data) {
     currentLimit: config.currentLimit || 40,
     rampRate: config.rampRate || 0.1,
 
-    // PID - passed directly from wizard
+    // PID
     pid: config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
     simPid: config.simPid || config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
 
-    // Feedforward - passed directly from wizard
+    // Feedforward
     ff: config.ff || { kS: 0.2, kG: 0.4, kV: 1.1, kA: 0 },
     simFf: config.simFf || config.ff || { kS: 0.2, kG: 0.4, kV: 1.1, kA: 0 },
 
@@ -137,7 +153,12 @@ function mapToArmData(data) {
     maxHardLimit: config.maxHardLimit || 100,
     startingAngle: config.startingAngle || 0,
     armLength: config.armLength || 0.6,
-    mass: config.armMass || 8
+    mass: config.armMass || 8,
+
+    // Follower
+    hasFollower: config.hasFollower || false,
+    followerId: config.followerId || 0,
+    followerInverted: config.followerInverted || false
   };
 }
 
@@ -161,11 +182,11 @@ function mapToElevatorData(data) {
 
     mechanismCircumference: config.mechanismCircumference || 0.1,
 
-    // PID - passed directly from wizard
+    // PID
     pid: config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
     simPid: config.simPid || config.pid || { kP: 0.6, kI: 0, kD: 0.02 },
 
-    // Feedforward - passed directly from wizard
+    // Feedforward
     ff: config.ff || { kS: 0.2, kG: 0.8, kV: 1.0, kA: 0 },
     simFf: config.simFf || config.ff || { kS: 0.2, kG: 0.8, kV: 1.0, kA: 0 },
 
@@ -173,7 +194,12 @@ function mapToElevatorData(data) {
     startingHeight: config.startingHeight || 0,
     minHeight: config.minHeight || 0,
     maxHeight: config.maxHeight || 1.5,
-    mass: config.elevatorMass || 10
+    mass: config.elevatorMass || 10,
+
+    // Follower
+    hasFollower: config.hasFollower || false,
+    followerId: config.followerId || 0,
+    followerInverted: config.followerInverted || false
   };
 }
 
@@ -194,18 +220,23 @@ function mapToShooterData(data) {
     currentLimit: config.currentLimit || 80,
     rampRate: config.rampRate || 0.1,
 
-    // PID - passed directly from wizard (velocity control uses lower gains)
+    // PID (velocity uses lower gains typically)
     pid: config.pid || { kP: 0.1, kI: 0, kD: 0 },
     simPid: config.simPid || config.pid || { kP: 0.1, kI: 0, kD: 0 },
 
-    // Feedforward - no kG for velocity mechanisms
+    // Feedforward
     ff: { kS: config.ff?.kS || 0.1, kV: config.ff?.kV || 0.12, kA: config.ff?.kA || 0 },
     simFf: { kS: config.simFf?.kS || 0.1, kV: config.simFf?.kV || 0.12, kA: config.simFf?.kA || 0 },
 
     // Flywheel-specific
     flywheelDiameter: config.flywheelDiameter || 4,
     mass: config.flywheelMass || 2,
-    maxVelocity: config.maxVelocity || 6000
+    maxVelocity: config.maxVelocity || 6000,
+
+    // Follower
+    hasFollower: config.hasFollower || false,
+    followerId: config.followerId || 0,
+    followerInverted: config.followerInverted || false
   };
 }
 
@@ -215,7 +246,6 @@ function mapToShooterData(data) {
 function mapToPivotData(data) {
   const config = data.yamsConfig || {};
 
-  // Pivot uses arm-like data but from pivot-specific fields
   return {
     subsystemName: data.subsystemName,
     motorControllerType: config.motorControllerType || 'TalonFX',
@@ -241,10 +271,14 @@ function mapToPivotData(data) {
     maxHardLimit: (config.pivotMaxAngle || 90) + 10,
     startingAngle: config.pivotStartAngle || 0,
     armLength: config.pivotLength || 0.3,
-    mass: config.pivotMass || 4
+    mass: config.pivotMass || 4,
+
+    // Follower
+    hasFollower: config.hasFollower || false,
+    followerId: config.followerId || 0,
+    followerInverted: config.followerInverted || false
   };
 }
-
 
 /**
  * Main YAMS Subsystem Generator
@@ -278,8 +312,8 @@ async function generateYAMSSubsystem(data, rootPath) {
       // Register Handlebars helpers
       registerHelpers();
 
-      // Step 1: Fetch template from GitHub
-      progress.report({ message: 'Fetching template from GitHub...', increment: 20 });
+      // Step 1: Fetch template from LOCAL
+      progress.report({ message: 'Fetching template...', increment: 20 });
       const templateSource = await fetchTemplate(templateName);
 
       // Step 2: Compile template
@@ -311,7 +345,57 @@ async function generateYAMSSubsystem(data, rootPath) {
 
       // Step 4: Render template
       progress.report({ message: 'Generating code...', increment: 20 });
-      const generatedCode = template(templateData);
+      let generatedCode = template(templateData);
+
+      // --- Post-Processing Fixes (User Request) ---
+
+      // 1. Fix Motor Config and Imports for YAMS classes
+      generatedCode = generatedCode.replace(/import yams\.utils\.GearBox;/g, 'import yams.gearing.GearBox;');
+      generatedCode = generatedCode.replace(/import yams\.utils\.MechanismGearing;/g, 'import yams.gearing.MechanismGearing;');
+      generatedCode = generatedCode.replace(/import yams\.motorcontrollers\.local\.TalonFXWrapper;/g, 'import yams.motorcontrollers.TalonFXWrapper;');
+
+      // 2. Fix Kraken X60 typo
+      generatedCode = generatedCode.replace(/DCMotor\.getKraken X60/g, 'DCMotor.getKrakenX60');
+
+      // 3. Inject Follower Code
+      if (templateData.hasFollower && templateData.followerId) {
+        let followerCode = '';
+        const fid = templateData.followerId;
+        const finv = templateData.followerInverted;
+        const mcType = templateData.motorControllerType;
+
+        // Determine Motor Class and Import
+        if (mcType === 'TalonFX' || mcType === 'Kraken X60') {
+          followerCode = `.withFollowers(Pair.of(new TalonFX(${fid}), ${finv}))`;
+          if (!generatedCode.includes('import com.ctre.phoenix6.hardware.TalonFX;')) {
+            generatedCode = generatedCode.replace(/package frc\.robot\.subsystems;/, "package frc.robot.subsystems;\n\nimport com.ctre.phoenix6.hardware.TalonFX;\nimport edu.wpi.first.math.Pair;");
+          }
+        } else if (mcType === 'SparkMax' || mcType === 'NEO') {
+          followerCode = `.withFollowers(Pair.of(new SparkMax(${fid}, MotorType.kBrushless), ${finv}))`;
+          if (!generatedCode.includes('import com.revrobotics.spark.SparkMax;')) {
+            generatedCode = generatedCode.replace(/package frc\.robot\.subsystems;/, "package frc.robot.subsystems;\n\nimport com.revrobotics.spark.SparkMax;\nimport com.revrobotics.spark.SparkLowLevel.MotorType;\nimport edu.wpi.first.math.Pair;");
+          }
+        }
+
+        if (followerCode) {
+          // Find where to inject. Look for new SmartMotorControllerConfig(this)
+          const searchStr = 'new SmartMotorControllerConfig(this)';
+          const idx = generatedCode.indexOf(searchStr);
+
+          if (idx !== -1) {
+            // Insert code into the chain
+            generatedCode = generatedCode.replace(searchStr, searchStr + '\n      ' + followerCode);
+          }
+        }
+      }
+
+      // Ensure specific config imports are present config/ArmConfig etc
+      if (!generatedCode.includes('import yams.mechanisms.config.ArmConfig;') && templateData.mechType === 'Arm') {
+        generatedCode = generatedCode.replace(/package frc\.robot\.subsystems;/, "package frc.robot.subsystems;\n\nimport yams.mechanisms.config.ArmConfig;");
+      }
+      if (!generatedCode.includes('import yams.mechanisms.positional.Arm;') && templateData.mechType === 'Arm') {
+        generatedCode = generatedCode.replace(/package frc\.robot\.subsystems;/, "package frc.robot.subsystems;\n\nimport yams.mechanisms.positional.Arm;");
+      }
 
       // Step 5: Write file
       progress.report({ message: 'Writing file...', increment: 20 });
@@ -343,9 +427,6 @@ async function generateYAMSSubsystem(data, rootPath) {
   });
 }
 
-/**
- * Get available mechanism types and their descriptions
- */
 function getAvailableMechanisms() {
   return [
     { id: 'Arm', name: 'Arm', description: 'Positional arm mechanism with angular control' },
@@ -356,16 +437,10 @@ function getAvailableMechanisms() {
   ];
 }
 
-/**
- * Get the list of supported motor controllers
- */
 function getSupportedControllers() {
   return Object.keys(CONTROLLER_TYPE_MAP);
 }
 
-/**
- * Get the list of supported motor types
- */
 function getSupportedMotors() {
   return Object.keys(MOTOR_MODEL_MAP);
 }

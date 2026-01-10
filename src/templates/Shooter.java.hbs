@@ -1,0 +1,120 @@
+// Copyright (c) FIRST and other WPILib contributors.
+// Open Source Software; you can modify and/or share it under the terms of
+// the WPILib BSD license file in the root directory of this project.
+
+package frc.robot.subsystems;
+
+import static edu.wpi.first.units.Units.*;
+
+{{#if (eq motorControllerType 'SparkMax')}}
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
+import yams.motorcontrollers.local.SparkWrapper;
+{{/if}}
+{{#if (eq motorControllerType 'TalonFX')}}
+import com.ctre.phoenix6.hardware.TalonFX;
+import yams.motorcontrollers.local.TalonFXWrapper;
+{{/if}}
+{{#if (eq motorControllerType 'TalonFXS')}}
+import com.ctre.phoenix6.hardware.TalonFXS;
+import yams.motorcontrollers.local.TalonFXSWrapper;
+{{/if}}
+{{#if (eq motorControllerType 'Nova')}}
+import com.thethriftybot.ThriftyNova;
+import yams.motorcontrollers.remote.NovaWrapper;
+{{/if}}
+
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import yams.mechanisms.config.FlyWheelConfig;
+import yams.mechanisms.velocity.FlyWheel;
+import yams.motorcontrollers.SmartMotorController;
+import yams.motorcontrollers.SmartMotorControllerConfig;
+import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
+import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
+import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
+import yams.utils.GearBox;
+import yams.utils.MechanismGearing;
+
+public class {{subsystemName}} extends SubsystemBase {
+
+  // 1. Configure the SmartMotorController
+  private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig(this)
+      .withControlMode(ControlMode.CLOSED_LOOP)
+      .withClosedLoopController({{pid.kP}}, {{pid.kI}}, {{pid.kD}}{{#if pid.kF}}, {{pid.kF}}{{/if}})
+      .withSimClosedLoopController({{simPid.kP}}, {{simPid.kI}}, {{simPid.kD}}{{#if simPid.kF}}, {{simPid.kF}}{{/if}})
+      .withFeedforward(new SimpleMotorFeedforward({{ff.kS}}, {{ff.kV}}{{#if ff.kA}}, {{ff.kA}}{{/if}}))
+      .withSimFeedforward(new SimpleMotorFeedforward({{simFf.kS}}, {{simFf.kV}}{{#if simFf.kA}}, {{simFf.kA}}{{/if}}))
+      .withTelemetry("{{subsystemName}}Motor", TelemetryVerbosity.HIGH)
+      .withGearing(new MechanismGearing(GearBox.fromReductionStages({{gearingStages}})))
+      .withMotorInverted({{inverted}})
+      .withIdleMode(MotorMode.COAST)
+      .withStatorCurrentLimit(Amps.of({{currentLimit}}));
+
+  // 2. Initialize Vendor Motor Controller
+  {{#if (eq motorControllerType 'SparkMax')}}
+  private SparkMax motor = new SparkMax({{canId}}, MotorType.kBrushless);
+  private SmartMotorController smartMotorController = new SparkWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+  {{/if}}
+  {{#if (eq motorControllerType 'TalonFX')}}
+  private TalonFX motor = new TalonFX({{canId}});
+  private SmartMotorController smartMotorController = new TalonFXWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+  {{/if}}
+  {{#if (eq motorControllerType 'TalonFXS')}}
+  private TalonFXS motor = new TalonFXS({{canId}});
+  private SmartMotorController smartMotorController = new TalonFXSWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+  {{/if}}
+  {{#if (eq motorControllerType 'Nova')}}
+  private ThriftyNova motor = new ThriftyNova({{canId}});
+  private SmartMotorController smartMotorController = new NovaWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+  {{/if}}
+
+  // 3. Configure Flywheel/Shooter Mechanism
+  private FlyWheelConfig flywheelConfig = new FlyWheelConfig(smartMotorController)
+      .withDiameter(Inches.of({{flywheelDiameter}}))
+      .withMass(Pounds.of({{mass}}))
+      .withUpperSoftLimit(RPM.of({{maxVelocity}}))
+      .withTelemetry("{{subsystemName}}", TelemetryVerbosity.HIGH);
+
+  private FlyWheel flywheel = new FlyWheel(flywheelConfig);
+
+  /** Creates a new {{subsystemName}}. */
+  public {{subsystemName}}() {}
+
+  /**
+   * Gets the current velocity of the shooter.
+   * @return Shooter velocity.
+   */
+  public AngularVelocity getVelocity() {
+    return flywheel.getSpeed();
+  }
+
+  /**
+   * Set the shooter velocity.
+   * @param velocity Speed to set.
+   */
+  public Command setVelocity(AngularVelocity velocity) {
+    return flywheel.setSpeed(velocity);
+  }
+
+  /**
+   * Set the dutycycle of the shooter.
+   * @param dutyCycle DutyCycle to set.
+   */
+  public Command set(double dutyCycle) {
+    return flywheel.set(dutyCycle);
+  }
+
+  @Override
+  public void periodic() {
+    flywheel.updateTelemetry();
+  }
+
+  @Override
+  public void simulationPeriodic() {
+    flywheel.simIterate();
+  }
+}

@@ -285,6 +285,36 @@
                             <label>Ramp Rate (seconds)</label>
                             <input type="number" id="yamsRampRate" class="wizard-input" value="0.1" step="0.01">
                         </div>
+
+                        <!-- Follower Motor Section -->
+                        <div
+                            style="margin-top: 20px; border-top: 1px solid var(--vscode-widget-border); padding-top: 15px;">
+                            <div class="form-row">
+                                <label>Follower Motor?</label>
+                                <select id="yamsHasFollower" class="wizard-input">
+                                    <option value="false">No</option>
+                                    <option value="true">Yes</option>
+                                </select>
+                            </div>
+
+                            <div id="followerConfig"
+                                style="display: none; margin-top: 15px; padding-left: 15px; border-left: 2px solid var(--vscode-textLink-foreground);">
+                                <div style="display: flex; gap: 15px;">
+                                    <div style="flex: 1;" class="form-row">
+                                        <label>Follower ID</label>
+                                        <input type="number" id="yamsFollowerId" class="wizard-input"
+                                            placeholder="e.g. 2">
+                                    </div>
+                                    <div style="flex: 1;" class="form-row">
+                                        <label>Inverted?</label>
+                                        <select id="yamsFollowerInverted" class="wizard-input">
+                                            <option value="false">Matches Leader</option>
+                                            <option value="true">Opposed to Leader</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -293,6 +323,12 @@
                     <div class="wizard-page-header">
                         <h2 id="mechConfigTitle">🔧 Arm Configuration</h2>
                         <p class="wizard-page-desc" id="mechConfigDesc">Configure your arm mechanism parameters.</p>
+
+                        <!-- Explanatory Image -->
+                        <div id="armConfigImage" style="text-align: center; margin-bottom: 20px;">
+                            <img src="media/arm_config_diagram.png" alt="Arm Configuration Diagram"
+                                style="max-width: 100%; border-radius: 8px; border: 1px solid var(--vscode-widget-border);">
+                        </div>
                     </div>
                     <div class="wizard-page-body">
                         <!-- Arm Config -->
@@ -573,125 +609,121 @@
                             </div>
                         </div>
 
-                        <div style="margin-top: 20px; text-align: center;">
-                            <button class="btn btn-primary" style="padding: 12px 40px; font-size: 1.1em;"
-                                onclick="triggerYamsGenerate()">
-                                🚀 Generate Subsystem
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Wizard Navigation -->
-            <div class="wizard-footer">
-                <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()" disabled>
-                    ← Previous
-                </button>
-                <div class="wizard-page-indicator">
-                    <span id="currentStepNum">1</span> / 5
-                </div>
-                <button class="btn wizard-btn-next" onclick="nextWizardStep()">
-                    Next →
-                </button>
-            </div>
         </div>
+    </div>
 
-        <!-- PID Configuration (only shown for PID subsystems) -->
-        <div id="pid-section" style="display: none;">
-            <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">PID Configuration</h2>
+    <!-- Wizard Navigation -->
+    <div class="wizard-footer">
+        <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()" disabled>
+            ← Previous
+        </button>
+        <div class="wizard-page-indicator">
+            <span id="currentStepNum">1</span> / 5
+        </div>
+        <button class="btn wizard-btn-next" onclick="nextWizardStep()">
+            Next →
+        </button>
+    </div>
+    </div>
 
-            <div class="form-row" style="margin-bottom: 15px;">
-                <label>Feedforward Strategy</label>
-                <select id="pidStrategy">
-                    <option value="simple">Simple (SVGA)</option>
-                    <option value="elevator">Elevator (G+SVGA)</option>
-                    <option value="arm">Arm (Cos+SVGA)</option>
-                </select>
-            </div>
+    <!-- PID Configuration (only shown for PID subsystems) -->
+    <div id="pid-section" style="display: none;">
+        <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">PID Configuration</h2>
 
-            <div>
-                Use this Website to calculate your PID values: <a href="https://www.reca.lc">https://www.reca.lc</a>
-                <br>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <div class="form-row">
-                    <label for="pidP">kP (Proportional)</label>
-                    <input type="text" id="pidP" placeholder="0.1" value="0.0">
-                </div>
-                <div class="form-row">
-                    <label for="pidI">kI (Integral)</label>
-                    <input type="text" id="pidI" placeholder="0.0" value="0.0">
-                </div>
-                <div class="form-row">
-                    <label for="pidD">kD (Derivative)</label>
-                    <input type="text" id="pidD" placeholder="0.01" value="0.0">
-                </div>
-                <div class="form-row">
-                    <label for="pidS">kS (Static Gain)</label>
-                    <input type="text" id="pidS" placeholder="0.0" value="0.0">
-                </div>
-                <div class="form-row" id="kGRow" style="display: none;">
-                    <label for="pidG">kG (Gravity Gain)</label>
-                    <input type="text" id="pidG" placeholder="0.0" value="0.0">
-                </div>
-                <div class="form-row">
-                    <label for="pidV">kV (Velocity Gain)</label>
-                    <input type="text" id="pidV" placeholder="0.0" value="0.0">
-                </div>
-                <div class="form-row">
-                    <label for="pidA">kA (Acceleration Gain)</label>
-                    <input type="text" id="pidA" placeholder="0.0" value="0.0">
-                </div>
-                <div class="form-row profiled-only">
-                    <label for="pidMaxVel">Max Velocity</label>
-                    <input type="text" id="pidMaxVel" placeholder="1.0" value="0.0">
-                </div>
-                <div class="form-row profiled-only">
-                    <label for="pidMaxAccel">Max Acceleration</label>
-                    <input type="text" id="pidMaxAccel" placeholder="1.0" value="0.0">
-                </div>
-                <!-- Output Range -->
-                <div class="form-row">
-                    <label for="minOutput">Min Output</label>
-                    <input type="text" id="minOutput" placeholder="-1.0" value="-1.0">
-                </div>
-                <div class="form-row">
-                    <label for="maxOutput">Max Output</label>
-                    <input type="text" id="maxOutput" placeholder="1.0" value="1.0">
-                </div>
-                <!-- Tuneable Wrapper Prompt -->
-                <div class="checkbox-item" style="grid-column: span 2; margin-top: 10px;">
-                    <input type="checkbox" id="useTuneable" checked>
-                    <label for="useTuneable" style="color: var(--vscode-textLink-foreground);">
-                        Use TuneablePIDController wrapper (Auto-installs if missing)
-                    </label>
-                </div>
-            </div>
+        <div class="form-row" style="margin-bottom: 15px;">
+            <label>Feedforward Strategy</label>
+            <select id="pidStrategy">
+                <option value="simple">Simple (SVGA)</option>
+                <option value="elevator">Elevator (G+SVGA)</option>
+                <option value="arm">Arm (Cos+SVGA)</option>
+            </select>
         </div>
 
         <div>
-            <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">Hardware Devices</h2>
-            <div class="drop-zone" id="dropZone">
-                <table>
-                    <thead>
-                        <tr>
-                            <th width="28%">Device Type</th>
-                            <th width="22%">Variable Name</th>
-                            <th width="10%">CAN ID</th>
-                            <th width="12%">Bus</th>
-                            <th width="23%">Helper Methods</th>
-                            <th width="5%"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="deviceTable"></tbody>
-                </table>
-            </div>
-            <p style="opacity: 0.6; font-size: 0.85em; margin-top: 10px;">
-                💡 Drag device types from the sidebar or click for more info
-            </p>
+            Use this Website to calculate your PID values: <a href="https://www.reca.lc">https://www.reca.lc</a>
+            <br>
         </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-row">
+                <label for="pidP">kP (Proportional)</label>
+                <input type="text" id="pidP" placeholder="0.1" value="0.0">
+            </div>
+            <div class="form-row">
+                <label for="pidI">kI (Integral)</label>
+                <input type="text" id="pidI" placeholder="0.0" value="0.0">
+            </div>
+            <div class="form-row">
+                <label for="pidD">kD (Derivative)</label>
+                <input type="text" id="pidD" placeholder="0.01" value="0.0">
+            </div>
+            <div class="form-row">
+                <label for="pidS">kS (Static Gain)</label>
+                <input type="text" id="pidS" placeholder="0.0" value="0.0">
+            </div>
+            <div class="form-row" id="kGRow" style="display: none;">
+                <label for="pidG">kG (Gravity Gain)</label>
+                <input type="text" id="pidG" placeholder="0.0" value="0.0">
+            </div>
+            <div class="form-row">
+                <label for="pidV">kV (Velocity Gain)</label>
+                <input type="text" id="pidV" placeholder="0.0" value="0.0">
+            </div>
+            <div class="form-row">
+                <label for="pidA">kA (Acceleration Gain)</label>
+                <input type="text" id="pidA" placeholder="0.0" value="0.0">
+            </div>
+            <div class="form-row profiled-only">
+                <label for="pidMaxVel">Max Velocity</label>
+                <input type="text" id="pidMaxVel" placeholder="1.0" value="0.0">
+            </div>
+            <div class="form-row profiled-only">
+                <label for="pidMaxAccel">Max Acceleration</label>
+                <input type="text" id="pidMaxAccel" placeholder="1.0" value="0.0">
+            </div>
+            <!-- Output Range -->
+            <div class="form-row">
+                <label for="minOutput">Min Output</label>
+                <input type="text" id="minOutput" placeholder="-1.0" value="-1.0">
+            </div>
+            <div class="form-row">
+                <label for="maxOutput">Max Output</label>
+                <input type="text" id="maxOutput" placeholder="1.0" value="1.0">
+            </div>
+            <!-- Tuneable Wrapper Prompt -->
+            <div class="checkbox-item" style="grid-column: span 2; margin-top: 10px;">
+                <input type="checkbox" id="useTuneable" checked>
+                <label for="useTuneable" style="color: var(--vscode-textLink-foreground);">
+                    Use TuneablePIDController wrapper (Auto-installs if missing)
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">Hardware Devices</h2>
+        <div class="drop-zone" id="dropZone">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="28%">Device Type</th>
+                        <th width="22%">Variable Name</th>
+                        <th width="10%">CAN ID</th>
+                        <th width="12%">Bus</th>
+                        <th width="23%">Helper Methods</th>
+                        <th width="5%"></th>
+                    </tr>
+                </thead>
+                <tbody id="deviceTable"></tbody>
+            </table>
+        </div>
+        <p style="opacity: 0.6; font-size: 0.85em; margin-top: 10px;">
+            💡 Drag device types from the sidebar or click for more info
+        </p>
+    </div>
     </div>
 
     <div class="info-popup" id="infoPopup">
