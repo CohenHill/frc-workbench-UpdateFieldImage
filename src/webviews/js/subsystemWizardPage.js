@@ -1252,9 +1252,10 @@ function goToWizardStep(stepNum) {
 
     if (nextBtn) {
         if (stepNum === totalWizardSteps) {
-            nextBtn.innerHTML = '✓ Generate';
-            nextBtn.classList.add('finish');
+            // Hide footer button on last step, prefer the main "Generate" button in the form
+            nextBtn.style.display = 'none';
         } else {
+            nextBtn.style.display = 'block';
             nextBtn.innerHTML = 'Next →';
             nextBtn.classList.remove('finish');
         }

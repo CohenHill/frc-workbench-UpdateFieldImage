@@ -132,6 +132,28 @@
                     <option value="Subsystem">Subsystem</option>
                 </select>
             </div>
+
+            <div style="margin-top: 20px;">
+                <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">Hardware Devices</h2>
+                <div class="drop-zone" id="dropZone">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th width="28%">Device Type</th>
+                                <th width="22%">Variable Name</th>
+                                <th width="10%">CAN ID</th>
+                                <th width="12%">Bus</th>
+                                <th width="23%">Helper Methods</th>
+                                <th width="5%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="deviceTable"></tbody>
+                    </table>
+                </div>
+                <p style="opacity: 0.6; font-size: 0.85em; margin-top: 10px;">
+                    💡 Drag device types from the sidebar or click for more info
+                </p>
+            </div>
         </div>
 
         <!-- YAMS Wizard (only shown when YAMS is selected) -->
@@ -207,6 +229,20 @@
                             <label>Subsystem Name</label>
                             <input type="text" id="yamsSubsystemName" placeholder="e.g., Arm, Elevator, Shooter"
                                 class="wizard-input">
+                        </div>
+
+                        <!-- Page Navigation -->
+                        <div class="wizard-page-footer"
+                            style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
+                            <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()" disabled>
+                                ← Previous
+                            </button>
+                            <div class="wizard-page-indicator">
+                                <span id="currentStepNum">1</span> / 5
+                            </div>
+                            <button class="btn wizard-btn-next" onclick="nextWizardStep()">
+                                Next →
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -314,6 +350,20 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Page Navigation -->
+                        <div class="wizard-page-footer"
+                            style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
+                            <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()">
+                                ← Previous
+                            </button>
+                            <div class="wizard-page-indicator">
+                                <span id="currentStepNum">2</span> / 5
+                            </div>
+                            <button class="btn wizard-btn-next" onclick="nextWizardStep()">
+                                Next →
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -488,6 +538,20 @@
                                 <span class="hint-text">4 inches = 0.1016 m</span>
                             </div>
                         </div>
+
+                        <!-- Page Navigation -->
+                        <div class="wizard-page-footer"
+                            style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
+                            <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()">
+                                ← Previous
+                            </button>
+                            <div class="wizard-page-indicator">
+                                <span id="currentStepNum">3</span> / 5
+                            </div>
+                            <button class="btn wizard-btn-next" onclick="nextWizardStep()">
+                                Next →
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -564,69 +628,76 @@
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Page 5: Review & Generate -->
-                <div class="wizard-page" data-page="5">
-                    <div class="wizard-page-header">
-                        <h2>✅ Review & Generate</h2>
-                        <p class="wizard-page-desc">Review your configuration before generating.</p>
-                    </div>
-                    <div class="wizard-page-body">
-                        <div class="review-card"
-                            style="background: var(--vscode-editor-background); border: 1px solid var(--vscode-widget-border); border-radius: 12px; padding: 20px;">
-                            <h3 id="reviewName" style="margin: 0 0 15px 0; font-size: 1.4em;">🦾 Arm Subsystem</h3>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                <div>
-                                    <div class="review-label">Mechanism Type</div>
-                                    <div class="review-value" id="reviewMechType">Arm</div>
-                                </div>
-                                <div>
-                                    <div class="review-label">Motor Controller</div>
-                                    <div class="review-value" id="reviewController">TalonFX</div>
-                                </div>
-                                <div>
-                                    <div class="review-label">Motor Model</div>
-                                    <div class="review-value" id="reviewMotor">Kraken X60</div>
-                                </div>
-                                <div>
-                                    <div class="review-label">CAN ID</div>
-                                    <div class="review-value" id="reviewCanId">1</div>
-                                </div>
-                                <div>
-                                    <div class="review-label">Gearing</div>
-                                    <div class="review-value" id="reviewGearing">1:1</div>
-                                </div>
-                                <div>
-                                    <div class="review-label">Current Limit</div>
-                                    <div class="review-value" id="reviewCurrentLimit">40A</div>
-                                </div>
-                            </div>
-                            <div
-                                style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--vscode-widget-border);">
-                                <div class="review-label">PID Gains</div>
-                                <div class="review-value" id="reviewPID">kP=0.6, kI=0, kD=0.02</div>
-                            </div>
+                    <!-- Page Navigation -->
+                    <div class="wizard-page-footer"
+                        style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
+                        <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()">
+                            ← Previous
+                        </button>
+                        <div class="wizard-page-indicator">
+                            <span id="currentStepNum">4</span> / 5
                         </div>
-
+                        <button class="btn wizard-btn-next" onclick="nextWizardStep()">
+                            Next →
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Wizard Navigation -->
-    <div class="wizard-footer">
-        <button class="btn btn-secondary wizard-btn-prev" onclick="prevWizardStep()" disabled>
-            ← Previous
-        </button>
-        <div class="wizard-page-indicator">
-            <span id="currentStepNum">1</span> / 5
+            <!-- Page 5: Review & Generate -->
+            <div class="wizard-page" data-page="5">
+                <div class="wizard-page-header">
+                    <h2>✅ Review & Generate</h2>
+                    <p class="wizard-page-desc">Review your configuration before generating.</p>
+                </div>
+                <div class="wizard-page-body">
+                    <div class="review-card"
+                        style="background: var(--vscode-editor-background); border: 1px solid var(--vscode-widget-border); border-radius: 12px; padding: 20px;">
+                        <h3 id="reviewName" style="margin: 0 0 15px 0; font-size: 1.4em;">🦾 Arm Subsystem</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <div class="review-label">Mechanism Type</div>
+                                <div class="review-value" id="reviewMechType">Arm</div>
+                            </div>
+                            <div>
+                                <div class="review-label">Motor Controller</div>
+                                <div class="review-value" id="reviewController">TalonFX</div>
+                            </div>
+                            <div>
+                                <div class="review-label">Motor Model</div>
+                                <div class="review-value" id="reviewMotor">Kraken X60</div>
+                            </div>
+                            <div>
+                                <div class="review-label">CAN ID</div>
+                                <div class="review-value" id="reviewCanId">1</div>
+                            </div>
+                            <div>
+                                <div class="review-label">Gearing</div>
+                                <div class="review-value" id="reviewGearing">1:1</div>
+                            </div>
+                            <div>
+                                <div class="review-label">Current Limit</div>
+                                <div class="review-value" id="reviewCurrentLimit">40A</div>
+                            </div>
+                        </div>
+                        <div
+                            style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--vscode-widget-border);">
+                            <div class="review-label">PID Gains</div>
+                            <div class="review-value" id="reviewPID">kP=0.6, kI=0, kD=0.02</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="btn btn-primary" style="padding: 12px 40px; font-size: 1.1em;"
+                            onclick="triggerYamsGenerate()">
+                            🚀 Generate Subsystem
+                        </button>
+                    </div>
+
+                </div>
+            </div>
         </div>
-        <button class="btn wizard-btn-next" onclick="nextWizardStep()">
-            Next →
-        </button>
-    </div>
     </div>
 
     <!-- PID Configuration (only shown for PID subsystems) -->
@@ -703,27 +774,7 @@
         </div>
     </div>
 
-    <div>
-        <h2 style="font-size: 1.2em; font-weight: 500; margin: 0 0 10px 0;">Hardware Devices</h2>
-        <div class="drop-zone" id="dropZone">
-            <table>
-                <thead>
-                    <tr>
-                        <th width="28%">Device Type</th>
-                        <th width="22%">Variable Name</th>
-                        <th width="10%">CAN ID</th>
-                        <th width="12%">Bus</th>
-                        <th width="23%">Helper Methods</th>
-                        <th width="5%"></th>
-                    </tr>
-                </thead>
-                <tbody id="deviceTable"></tbody>
-            </table>
-        </div>
-        <p style="opacity: 0.6; font-size: 0.85em; margin-top: 10px;">
-            💡 Drag device types from the sidebar or click for more info
-        </p>
-    </div>
+
     </div>
 
     <div class="info-popup" id="infoPopup">
