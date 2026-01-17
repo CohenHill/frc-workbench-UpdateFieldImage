@@ -39,7 +39,8 @@ function selectMechCard(element, mechType) {
     // Auto-fill subsystem name if empty
     const nameInput = document.getElementById('yamsSubsystemName');
     if (nameInput && !nameInput.value.trim()) {
-        nameInput.value = mechType;
+        const randomSuffix = Math.floor(10000 + Math.random() * 90000); // 5 digits
+        nameInput.value = `${mechType} - ${randomSuffix}`;
     }
 
     console.log('Selected mechanism:', mechType);
@@ -1100,6 +1101,12 @@ function triggerYamsGenerate() {
     };
 
     const mechType = getString('yamsMechType', 'Arm');
+    if (!mechType) {
+        alert("Please select a Mechanism Type.");
+        goToWizardStep(1);
+        return;
+    }
+
     const useSameSim = getBool('yamsUseSameSimGains');
 
     // Build config matching Handlebars template expectations
@@ -1190,6 +1197,12 @@ function triggerYamsGenerate() {
     const data = {
         subsystemName: name,
         subsystemType: 'yams',
+        autoAppend: document.getElementById('autoAppend').checked,
+        singleton: document.getElementById('createSingleton').checked,
+        baseClass: document.getElementById('baseClass').value,
+        saveConstants: document.getElementById('saveToConstants').checked,
+        // @ts-ignore
+        states: document.getElementById('enableStates').checked ? states : [],
         yamsConfig: yamsConfig
     };
 
@@ -1420,6 +1433,12 @@ document.getElementById('generateBtn').addEventListener('click', () => {
     console.log("Generate button clicked");
     // Determine name based on mode
     const type = document.getElementById('subsystemType').value;
+
+    if (type === 'yams') {
+        triggerYamsGenerate();
+        return;
+    }
+
     let name = '';
 
     if (type === 'yams') {
@@ -1482,129 +1501,7 @@ document.getElementById('generateBtn').addEventListener('click', () => {
         saveConstants: document.getElementById('saveToConstants').checked
     };
 
-    // YAMS Specific Data extraction
-    if (type === 'yams') {
-        // Helper to safely parse numbers
-        const getNum = (id, def = 0) => {
-            const el = document.getElementById(id);
-            return el && el.value ? parseFloat(el.value) : def;
-        };
-        const getString = (id) => {
-            const el = document.getElementById(id);
-            return el ? el.value : '';
-        };
-        const getBool = (id) => {
-            const el = document.getElementById(id);
-            // Handle both checkbox and select
-            if (!el) return false;
-            if (el.type === 'checkbox') return el.checked;
-            return el.value === 'true';
-        };
 
-        data.yamsConfig = {
-            // Motor
-            motorType: getString('yamsMotorType'),
-            motorId: parseInt(getString('yamsMotorId') || '1'),
-            controllerType: getString('yamsController'),
-            hasFollower: getBool('yamsHasFollower'), // select value comparison handled in getBool? No, select value is string 'true'/'false'
-            followerId: parseInt(getString('yamsFollowerId') || '0'),
-            followerInverted: document.getElementById('yamsFollowerInverted').checked,
-
-            // Physics / Limits
-            motorVersion: getString('yamsMotorVersion'), // Note: Element might be removed, but safely returns '' if missing
-            gearing: getNum('yamsGearing', 1.0),
-            supplyLimit: getNum('yamsSupplyLimit', 40),
-
-            // Control
-            controlLoop: getString('yamsControlLoop'),
-            kP: getNum('yamsKp', 0),
-            kI: getNum('yamsKi', 0),
-            kD: getNum('yamsKd', 0),
-            kS: getNum('yamsKs', 0),
-            kV: getNum('yamsKv', 0),
-            kG: getNum('yamsKg', 0),
-            kA: getNum('yamsKa', 0),
-
-            // Profiling
-            profileType: getString('yamsProfileType'),
-            maxVel: getNum('yamsMaxVel', 0),
-            maxAccel: getNum('yamsMaxAccel', 0),
-
-            // Mechanism Specifics
-            mechType: getString('yamsMechType'),
-            armLength: getNum('yamsArmLength', 0.75),
-            armMinAngle: getNum('yamsArmAngleMin', -90),
-            armMaxAngle: getNum('yamsArmAngleMax', 180),
-            armMass: getNum('yamsArmMass', 5),
-
-            elevatorMinHeight: getNum('yamsElevatorMinHeight', 0),
-            elevatorMaxHeight: getNum('yamsElevatorMaxHeight', 1.0),
-            elevatorMass: getNum('yamsElevatorMass', 5),
-            drumRadius: getNum('yamsDrumRadius', 0.05),
-
-            flywheelMoI: getNum('yamsFlywheelMoI', 0.001),
-
-            // Sensors / Start Pos
-            sensorType: getString('yamsSensorType'),
-            startPosition: getNum('yamsStartPosition', 0),
-            encoderGearing: getNum('yamsEncoderGearing', 1.0),
-            encoderInverted: getBool('yamsEncoderInverted'), // select
-            encoderOffset: getNum('yamsEncoderOffset', 0)
-        };
-
-        // Refine hasFollower check for select element
-        const followerSelect = document.getElementById('yamsHasFollower');
-        if (followerSelect) {
-            data.yamsConfig.hasFollower = followerSelect.value === 'true';
-        }
-    }
-
-    // Add PID config if it's a PID subsystem
-    if (type !== 'generic') {
-        data.pidConfig = {
-            // @ts-ignore
-            kP: document.getElementById('pidP').value,
-            // @ts-ignore
-            kI: document.getElementById('pidI').value,
-            // @ts-ignore
-            kD: document.getElementById('pidD').value,
-            // @ts-ignore
-            kS: document.getElementById('pidS').value,
-            // @ts-ignore
-            kV: document.getElementById('pidV').value,
-            // @ts-ignore
-            kA: document.getElementById('pidA').value,
-            // @ts-ignore
-            kG: document.getElementById('pidG').value,
-            // @ts-ignore
-            strategy: document.getElementById('pidStrategy').value,
-            // @ts-ignore
-            maxVelocity: document.getElementById('pidMaxVel').value,
-            // @ts-ignore
-            maxAcceleration: document.getElementById('pidMaxAccel').value,
-            // @ts-ignore
-            minOutput: document.getElementById('minOutput').value,
-            // @ts-ignore
-            maxOutput: document.getElementById('maxOutput').value,
-            // @ts-ignore
-            useTuneable: document.getElementById('useTuneable').checked,
-            isProfiled: type === 'profiled_pid'
-        };
-    }
-
-    // If YAMS mode and hardware list is empty (user used the wizard steps), synthesize the device
-    if (type === 'yams' && data.hardware.length === 0 && data.yamsConfig) {
-        // Create a primary motor device
-        const primaryMotor = {
-            name: 'primaryMotor', // Default name
-            type: data.yamsConfig.motorType,
-            id: data.yamsConfig.motorId,
-            bus: 'rio', // Default
-            yamsConfig: data.yamsConfig,
-            helperMethods: [] // No specific helpers selected from table
-        };
-        data.hardware.push(primaryMotor);
-    }
 
     console.log("Posting generate message:", data);
     vscode.postMessage({ command: 'generate', data: data });

@@ -723,6 +723,14 @@ tr.device-row:hover td {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
+.carousel-btn.prev {
+    left: 10px;
+}
+
+.carousel-btn.next {
+    right: 10px;
+}
+
 .modal {
     display: none;
     position: fixed;

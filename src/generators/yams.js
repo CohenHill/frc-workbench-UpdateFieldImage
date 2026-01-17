@@ -23,7 +23,8 @@ const MECHANISM_TEMPLATES = {
   'Elevator': 'Elevator.java.hbs',
   'Flywheel': 'Shooter.java.hbs',
   'Shooter': 'Shooter.java.hbs',
-  'SwerveDrive': 'SwerveDrive.java.hbs',
+  // SwerveDrive template not yet implemented - falls back to Arm for now
+  'SwerveDrive': null,
   'Simple': 'Arm.java.hbs', // Fallback for simple mechanisms
   'Generic': 'Arm.java.hbs' // Fallback
 };
@@ -298,7 +299,11 @@ async function generateYAMSSubsystem(data, rootPath) {
   const templateName = MECHANISM_TEMPLATES[mechType];
 
   if (!templateName) {
-    vscode.window.showErrorMessage(`YAMS Generation Failed: Unknown mechanism type '${mechType}'.`);
+    if (mechType === 'SwerveDrive') {
+      vscode.window.showWarningMessage(`SwerveDrive template is not yet implemented. Consider using YAGSL for swerve drive setup.`);
+    } else {
+      vscode.window.showErrorMessage(`YAMS Generation Failed: Unknown mechanism type '${mechType}'.`);
+    }
     return;
   }
 
@@ -349,9 +354,7 @@ async function generateYAMSSubsystem(data, rootPath) {
 
       // --- Post-Processing Fixes (User Request) ---
 
-      // 1. Fix Motor Config and Imports for YAMS classes
-      generatedCode = generatedCode.replace(/import yams\.utils\.GearBox;/g, 'import yams.gearing.GearBox;');
-      generatedCode = generatedCode.replace(/import yams\.utils\.MechanismGearing;/g, 'import yams.gearing.MechanismGearing;');
+      // 1. Fix Motor Config imports for YAMS classes (deprecated paths - templates now use correct paths)
       generatedCode = generatedCode.replace(/import yams\.motorcontrollers\.local\.TalonFXWrapper;/g, 'import yams.motorcontrollers.TalonFXWrapper;');
 
       // 2. Fix Kraken X60 typo

@@ -36,87 +36,88 @@ import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
-import yams.utils.GearBox;
-import yams.utils.MechanismGearing;
+import yams.gearing.GearBox;
+import yams.gearing.MechanismGearing;
 
 public class {{subsystemName}} extends SubsystemBase {
 
-  // 1. Configure the SmartMotorController
-  private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig(this)
-      .withControlMode(ControlMode.CLOSED_LOOP)
-      .withMechanismCircumference(Meters.of({{mechanismCircumference}}))
-      .withClosedLoopController({{pid.kP}}, {{pid.kI}}, {{pid.kD}}{{#if pid.kF}}, {{pid.kF}}{{/if}})
-      .withSimClosedLoopController({{simPid.kP}}, {{simPid.kI}}, {{simPid.kD}}{{#if simPid.kF}}, {{simPid.kF}}{{/if}})
-      .withFeedforward(new ElevatorFeedforward({{ff.kS}}, {{ff.kG}}, {{ff.kV}}{{#if ff.kA}}, {{ff.kA}}{{/if}}))
-      .withSimFeedforward(new ElevatorFeedforward({{simFf.kS}}, {{simFf.kG}}, {{simFf.kV}}{{#if simFf.kA}}, {{simFf.kA}}{{/if}}))
-      .withTelemetry("{{subsystemName}}Motor", TelemetryVerbosity.HIGH)
-      .withGearing(new MechanismGearing(GearBox.fromReductionStages({{gearingStages}})))
-      .withMotorInverted({{inverted}})
-      .withIdleMode(MotorMode.{{idleMode}})
-      .withStatorCurrentLimit(Amps.of({{currentLimit}}))
-      .withClosedLoopRampRate(Seconds.of({{rampRate}}))
-      .withOpenLoopRampRate(Seconds.of({{rampRate}}));
+// 1. Configure the SmartMotorController
+private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig(this)
+.withControlMode(ControlMode.CLOSED_LOOP)
+.withMechanismCircumference(Meters.of({{mechanismCircumference}}))
+.withClosedLoopController({{pid.kP}}, {{pid.kI}}, {{pid.kD}}{{#if pid.kF}}, {{pid.kF}}{{/if}})
+.withSimClosedLoopController({{simPid.kP}}, {{simPid.kI}}, {{simPid.kD}}{{#if simPid.kF}}, {{simPid.kF}}{{/if}})
+.withFeedforward(new ElevatorFeedforward({{ff.kS}}, {{ff.kG}}, {{ff.kV}}{{#if ff.kA}}, {{ff.kA}}{{/if}}))
+.withSimFeedforward(new ElevatorFeedforward({{simFf.kS}}, {{simFf.kG}}, {{simFf.kV}}{{#if simFf.kA}},
+{{simFf.kA}}{{/if}}))
+.withTelemetry("{{subsystemName}}Motor", TelemetryVerbosity.HIGH)
+.withGearing(new MechanismGearing(GearBox.fromReductionStages({{gearingStages}})))
+.withMotorInverted({{inverted}})
+.withIdleMode(MotorMode.{{idleMode}})
+.withStatorCurrentLimit(Amps.of({{currentLimit}}))
+.withClosedLoopRampRate(Seconds.of({{rampRate}}))
+.withOpenLoopRampRate(Seconds.of({{rampRate}}));
 
-  // 2. Initialize Vendor Motor Controller
-  {{#if (eq motorControllerType 'SparkMax')}}
-  private SparkMax motor = new SparkMax({{canId}}, MotorType.kBrushless);
-  private SmartMotorController smartMotorController = new SparkWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
-  {{/if}}
-  {{#if (eq motorControllerType 'TalonFX')}}
-  private TalonFX motor = new TalonFX({{canId}});
-  private SmartMotorController smartMotorController = new TalonFXWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
-  {{/if}}
-  {{#if (eq motorControllerType 'TalonFXS')}}
-  private TalonFXS motor = new TalonFXS({{canId}});
-  private SmartMotorController smartMotorController = new TalonFXSWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
-  {{/if}}
-  {{#if (eq motorControllerType 'Nova')}}
-  private ThriftyNova motor = new ThriftyNova({{canId}});
-  private SmartMotorController smartMotorController = new NovaWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
-  {{/if}}
+// 2. Initialize Vendor Motor Controller
+{{#if (eq motorControllerType 'SparkMax')}}
+private SparkMax motor = new SparkMax({{canId}}, MotorType.kBrushless);
+private SmartMotorController smartMotorController = new SparkWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'TalonFX')}}
+private TalonFX motor = new TalonFX({{canId}});
+private SmartMotorController smartMotorController = new TalonFXWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'TalonFXS')}}
+private TalonFXS motor = new TalonFXS({{canId}});
+private SmartMotorController smartMotorController = new TalonFXSWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'Nova')}}
+private ThriftyNova motor = new ThriftyNova({{canId}});
+private SmartMotorController smartMotorController = new NovaWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
 
-  // 3. Configure Elevator Mechanism
-  private ElevatorConfig elevatorConfig = new ElevatorConfig(smartMotorController)
-      .withStartingHeight(Meters.of({{startingHeight}}))
-      .withHardLimits(Meters.of({{minHeight}}), Meters.of({{maxHeight}}))
-      .withMass(Pounds.of({{mass}}))
-      .withTelemetry("{{subsystemName}}", TelemetryVerbosity.HIGH);
+// 3. Configure Elevator Mechanism
+private ElevatorConfig elevatorConfig = new ElevatorConfig(smartMotorController)
+.withStartingHeight(Meters.of({{startingHeight}}))
+.withHardLimits(Meters.of({{minHeight}}), Meters.of({{maxHeight}}))
+.withMass(Pounds.of({{mass}}))
+.withTelemetry("{{subsystemName}}", TelemetryVerbosity.HIGH);
 
-  private Elevator elevator = new Elevator(elevatorConfig);
+private Elevator elevator = new Elevator(elevatorConfig);
 
-  /** Creates a new {{subsystemName}}. */
-  public {{subsystemName}}() {}
+/** Creates a new {{subsystemName}}. */
+public {{subsystemName}}() {}
 
-  /**
-   * Set the height of the elevator.
-   * @param height Distance to go to.
-   */
-  public Command setHeight(Distance height) { 
-    return elevator.setHeight(height);
-  }
+/**
+* Set the height of the elevator.
+* @param height Distance to go to.
+*/
+public Command setHeight(Distance height) {
+return elevator.setHeight(height);
+}
 
-  /**
-   * Move the elevator up and down with duty cycle.
-   * @param dutycycle [-1, 1] speed.
-   */
-  public Command set(double dutycycle) { 
-    return elevator.set(dutycycle);
-  }
+/**
+* Move the elevator up and down with duty cycle.
+* @param dutycycle [-1, 1] speed.
+*/
+public Command set(double dutycycle) {
+return elevator.set(dutycycle);
+}
 
-  /**
-   * Run SysId characterization.
-   */
-  public Command sysId() { 
-    return elevator.sysId(Volts.of(7), Volts.of(2).per(Second), Seconds.of(4));
-  }
+/**
+* Run SysId characterization.
+*/
+public Command sysId() {
+return elevator.sysId(Volts.of(7), Volts.of(2).per(Second), Seconds.of(4));
+}
 
-  @Override
-  public void periodic() {
-    elevator.updateTelemetry();
-  }
+@Override
+public void periodic() {
+elevator.updateTelemetry();
+}
 
-  @Override
-  public void simulationPeriodic() {
-    elevator.simIterate();
-  }
+@Override
+public void simulationPeriodic() {
+elevator.simIterate();
+}
 }

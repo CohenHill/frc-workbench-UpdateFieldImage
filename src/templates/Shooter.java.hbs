@@ -36,85 +36,85 @@ import yams.motorcontrollers.SmartMotorControllerConfig;
 import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
 import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
-import yams.utils.GearBox;
-import yams.utils.MechanismGearing;
+import yams.gearing.GearBox;
+import yams.gearing.MechanismGearing;
 
 public class {{subsystemName}} extends SubsystemBase {
 
-  // 1. Configure the SmartMotorController
-  private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig(this)
-      .withControlMode(ControlMode.CLOSED_LOOP)
-      .withClosedLoopController({{pid.kP}}, {{pid.kI}}, {{pid.kD}}{{#if pid.kF}}, {{pid.kF}}{{/if}})
-      .withSimClosedLoopController({{simPid.kP}}, {{simPid.kI}}, {{simPid.kD}}{{#if simPid.kF}}, {{simPid.kF}}{{/if}})
-      .withFeedforward(new SimpleMotorFeedforward({{ff.kS}}, {{ff.kV}}{{#if ff.kA}}, {{ff.kA}}{{/if}}))
-      .withSimFeedforward(new SimpleMotorFeedforward({{simFf.kS}}, {{simFf.kV}}{{#if simFf.kA}}, {{simFf.kA}}{{/if}}))
-      .withTelemetry("{{subsystemName}}Motor", TelemetryVerbosity.HIGH)
-      .withGearing(new MechanismGearing(GearBox.fromReductionStages({{gearingStages}})))
-      .withMotorInverted({{inverted}})
-      .withIdleMode(MotorMode.COAST)
-      .withStatorCurrentLimit(Amps.of({{currentLimit}}));
+// 1. Configure the SmartMotorController
+private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig(this)
+.withControlMode(ControlMode.CLOSED_LOOP)
+.withClosedLoopController({{pid.kP}}, {{pid.kI}}, {{pid.kD}}{{#if pid.kF}}, {{pid.kF}}{{/if}})
+.withSimClosedLoopController({{simPid.kP}}, {{simPid.kI}}, {{simPid.kD}}{{#if simPid.kF}}, {{simPid.kF}}{{/if}})
+.withFeedforward(new SimpleMotorFeedforward({{ff.kS}}, {{ff.kV}}{{#if ff.kA}}, {{ff.kA}}{{/if}}))
+.withSimFeedforward(new SimpleMotorFeedforward({{simFf.kS}}, {{simFf.kV}}{{#if simFf.kA}}, {{simFf.kA}}{{/if}}))
+.withTelemetry("{{subsystemName}}Motor", TelemetryVerbosity.HIGH)
+.withGearing(new MechanismGearing(GearBox.fromReductionStages({{gearingStages}})))
+.withMotorInverted({{inverted}})
+.withIdleMode(MotorMode.COAST)
+.withStatorCurrentLimit(Amps.of({{currentLimit}}));
 
-  // 2. Initialize Vendor Motor Controller
-  {{#if (eq motorControllerType 'SparkMax')}}
-  private SparkMax motor = new SparkMax({{canId}}, MotorType.kBrushless);
-  private SmartMotorController smartMotorController = new SparkWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
-  {{/if}}
-  {{#if (eq motorControllerType 'TalonFX')}}
-  private TalonFX motor = new TalonFX({{canId}});
-  private SmartMotorController smartMotorController = new TalonFXWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
-  {{/if}}
-  {{#if (eq motorControllerType 'TalonFXS')}}
-  private TalonFXS motor = new TalonFXS({{canId}});
-  private SmartMotorController smartMotorController = new TalonFXSWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
-  {{/if}}
-  {{#if (eq motorControllerType 'Nova')}}
-  private ThriftyNova motor = new ThriftyNova({{canId}});
-  private SmartMotorController smartMotorController = new NovaWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
-  {{/if}}
+// 2. Initialize Vendor Motor Controller
+{{#if (eq motorControllerType 'SparkMax')}}
+private SparkMax motor = new SparkMax({{canId}}, MotorType.kBrushless);
+private SmartMotorController smartMotorController = new SparkWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'TalonFX')}}
+private TalonFX motor = new TalonFX({{canId}});
+private SmartMotorController smartMotorController = new TalonFXWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'TalonFXS')}}
+private TalonFXS motor = new TalonFXS({{canId}});
+private SmartMotorController smartMotorController = new TalonFXSWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'Nova')}}
+private ThriftyNova motor = new ThriftyNova({{canId}});
+private SmartMotorController smartMotorController = new NovaWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
 
-  // 3. Configure Flywheel/Shooter Mechanism
-  private FlyWheelConfig flywheelConfig = new FlyWheelConfig(smartMotorController)
-      .withDiameter(Inches.of({{flywheelDiameter}}))
-      .withMass(Pounds.of({{mass}}))
-      .withUpperSoftLimit(RPM.of({{maxVelocity}}))
-      .withTelemetry("{{subsystemName}}", TelemetryVerbosity.HIGH);
+// 3. Configure Flywheel/Shooter Mechanism
+private FlyWheelConfig flywheelConfig = new FlyWheelConfig(smartMotorController)
+.withDiameter(Inches.of({{flywheelDiameter}}))
+.withMass(Pounds.of({{mass}}))
+.withUpperSoftLimit(RPM.of({{maxVelocity}}))
+.withTelemetry("{{subsystemName}}", TelemetryVerbosity.HIGH);
 
-  private FlyWheel flywheel = new FlyWheel(flywheelConfig);
+private FlyWheel flywheel = new FlyWheel(flywheelConfig);
 
-  /** Creates a new {{subsystemName}}. */
-  public {{subsystemName}}() {}
+/** Creates a new {{subsystemName}}. */
+public {{subsystemName}}() {}
 
-  /**
-   * Gets the current velocity of the shooter.
-   * @return Shooter velocity.
-   */
-  public AngularVelocity getVelocity() {
-    return flywheel.getSpeed();
-  }
+/**
+* Gets the current velocity of the shooter.
+* @return Shooter velocity.
+*/
+public AngularVelocity getVelocity() {
+return flywheel.getSpeed();
+}
 
-  /**
-   * Set the shooter velocity.
-   * @param velocity Speed to set.
-   */
-  public Command setVelocity(AngularVelocity velocity) {
-    return flywheel.setSpeed(velocity);
-  }
+/**
+* Set the shooter velocity.
+* @param velocity Speed to set.
+*/
+public Command setVelocity(AngularVelocity velocity) {
+return flywheel.setSpeed(velocity);
+}
 
-  /**
-   * Set the dutycycle of the shooter.
-   * @param dutyCycle DutyCycle to set.
-   */
-  public Command set(double dutyCycle) {
-    return flywheel.set(dutyCycle);
-  }
+/**
+* Set the dutycycle of the shooter.
+* @param dutyCycle DutyCycle to set.
+*/
+public Command set(double dutyCycle) {
+return flywheel.set(dutyCycle);
+}
 
-  @Override
-  public void periodic() {
-    flywheel.updateTelemetry();
-  }
+@Override
+public void periodic() {
+flywheel.updateTelemetry();
+}
 
-  @Override
-  public void simulationPeriodic() {
-    flywheel.simIterate();
-  }
+@Override
+public void simulationPeriodic() {
+flywheel.simIterate();
+}
 }
