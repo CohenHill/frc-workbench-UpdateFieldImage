@@ -362,13 +362,49 @@ function hideGuardrailWarning(id) {
 }
 
 // ===========================================
+// MOTOR-CONTROLLER COMPATIBILITY (Guardrail #11)
+// ===========================================
+const MOTOR_CONTROLLER_MATRIX = {
+    'Kraken X60': ['TalonFX'],
+    'Talon FX': ['TalonFX'],
+    'Vortex': ['SparkFlex', 'SparkMax'],
+    'NEO': ['SparkMax', 'SparkFlex'],
+    'NEO550': ['SparkMax', 'SparkFlex'],
+    'CIM': ['TalonSRX', 'VictorSPX', 'SparkMax'],
+    'MiniCIM': ['TalonSRX', 'VictorSPX', 'SparkMax'],
+    'Bag': ['TalonSRX', 'VictorSPX', 'SparkMax'],
+    '775pro': ['TalonSRX', 'VictorSPX', 'SparkMax']
+};
+
+/**
+ * Enforces Motor-Controller compatibility (Guardrail #11)
+ */
+window.enforceMotorControllerGuardrails = () => {
+    // @ts-ignore
+    const motor = document.getElementById('yamsMotorType')?.value;
+    // @ts-ignore
+    const controller = document.getElementById('yamsController')?.value;
+
+    const validControllers = MOTOR_CONTROLLER_MATRIX[motor] || [];
+
+    // If we have a matrix entry and the current controller isn't in it
+    if (validControllers.length > 0 && !validControllers.includes(controller)) {
+        showGuardrailWarning('motor-controller',
+            `⚠️ Incompatible: ${motor} typically does not work with ${controller}. Recommended: ${validControllers.join(' or ')}`);
+    } else {
+        hideGuardrailWarning('motor-controller');
+    }
+};
+
+// ===========================================
 // INITIALIZE GUARDRAILS ON LOAD
 // ===========================================
 window.initGuardrails = () => {
     // Attach change listeners to trigger guardrail enforcement
     const triggerFields = [
         'yamsControlLoop', 'yamsProfileType', 'yamsSensorType',
-        'yamsHasZeroOffset', 'yamsMechType', 'yamsMotorType'
+        'yamsHasZeroOffset', 'yamsMechType', 'yamsMotorType',
+        'yamsController' // Added controller to triggers
     ];
 
     triggerFields.forEach(id => {
@@ -380,6 +416,7 @@ window.initGuardrails = () => {
                 window.enforceProfileGuardrails();
                 window.enforceEncoderGuardrails();
                 window.enforceMechanismGuardrails();
+                window.enforceMotorControllerGuardrails(); // New check
                 window.invalidateDependents(id);
             });
         }
@@ -396,4 +433,5 @@ window.initGuardrails = () => {
     window.enforceControlModeGuardrails();
     window.enforceEncoderGuardrails();
     window.enforceMechanismGuardrails();
+    window.enforceMotorControllerGuardrails();
 };

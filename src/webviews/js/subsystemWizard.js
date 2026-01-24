@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* eslint-disable no-undef */
 // @ts-ignore
 const vscode = acquireVsCodeApi();
@@ -890,8 +891,136 @@ const totalWizardSteps = 10;
 window.nextWizardStep = () => {
     if (currentWizardStep < totalWizardSteps) {
         goToWizardStep(currentWizardStep + 1);
+    } else if (currentWizardStep === totalWizardSteps) {
+        // Collect all YAMS wizard data and send to backend
+        const yamsData = collectYAMSData();
+        if (yamsData) {
+            vscode.postMessage({ command: 'generateYAMS', data: yamsData });
+        }
     }
 };
+
+/**
+ * Collects all YAMS wizard form field values.
+ * @returns {Object|null} The collected data object, or null if validation fails.
+ */
+function collectYAMSData() {
+    // @ts-ignore
+    const name = document.getElementById('yamsSubsystemName')?.value?.trim();
+    if (!name) {
+        alert('Please enter a Subsystem Name');
+        goToWizardStep(1);
+        return null;
+    }
+
+    // Motor & Controller
+    // @ts-ignore
+    const motorType = document.getElementById('yamsMotorType')?.value || 'Kraken X60';
+    // @ts-ignore
+    const controller = document.getElementById('yamsController')?.value || 'TalonFX';
+    // @ts-ignore
+    const hasFollower = document.getElementById('yamsHasFollower')?.value === 'true';
+    // @ts-ignore
+    const followerInverted = document.getElementById('yamsFollowerInverted')?.value === 'true';
+
+    // Version & Gearing
+    // @ts-ignore
+    const mechType = document.getElementById('yamsMechType')?.value || 'Simple';
+    // @ts-ignore
+    const motorVersion = document.getElementById('yamsMotorVersion')?.value || '2025';
+    // @ts-ignore
+    const gearing = parseFloat(document.getElementById('yamsGearing')?.value) || 1.0;
+    // @ts-ignore
+    const supplyLimit = parseFloat(document.getElementById('yamsSupplyLimit')?.value) || 40;
+
+    // Control Mode & PID
+    // @ts-ignore
+    const controlLoop = document.getElementById('yamsControlLoop')?.value || 'ClosedLoop';
+    // @ts-ignore
+    const kP = parseFloat(document.getElementById('yamsKp')?.value) || 0;
+    // @ts-ignore
+    const kI = parseFloat(document.getElementById('yamsKi')?.value) || 0;
+    // @ts-ignore
+    const kD = parseFloat(document.getElementById('yamsKd')?.value) || 0;
+
+    // Feedforward & Profiling
+    // @ts-ignore
+    const kS = parseFloat(document.getElementById('yamsKs')?.value) || 0;
+    // @ts-ignore
+    const kV = parseFloat(document.getElementById('yamsKv')?.value) || 0;
+    // @ts-ignore
+    const kG = parseFloat(document.getElementById('yamsKg')?.value) || 0;
+    // @ts-ignore
+    const kA = parseFloat(document.getElementById('yamsKa')?.value) || 0;
+    // @ts-ignore
+    const profileType = document.getElementById('yamsProfileType')?.value || 'None';
+    // @ts-ignore
+    const maxVel = parseFloat(document.getElementById('yamsMaxVel')?.value) || 0;
+    // @ts-ignore
+    const maxAccel = parseFloat(document.getElementById('yamsMaxAccel')?.value) || 0;
+
+    // Starting Position
+    // @ts-ignore
+    const startPosition = parseFloat(document.getElementById('yamsStartPosition')?.value) || 0;
+
+    // External Feedback
+    // @ts-ignore
+    const sensorType = document.getElementById('yamsSensorType')?.value || 'Internal';
+    // @ts-ignore
+    const encoderGearing = parseFloat(document.getElementById('yamsEncoderGearing')?.value) || 1.0;
+    // @ts-ignore
+    const encoderInverted = document.getElementById('yamsEncoderInverted')?.value === 'true';
+    // @ts-ignore
+    const encoderOffset = parseFloat(document.getElementById('yamsEncoderOffset')?.value) || 0;
+
+    // Mechanism-specific config
+    let mechConfig = {};
+    if (mechType === 'Arm') {
+        // @ts-ignore
+        mechConfig.armLength = parseFloat(document.getElementById('yamsArmLength')?.value) || 0.75;
+        // @ts-ignore
+        mechConfig.minAngle = parseFloat(document.getElementById('yamsArmAngleMin')?.value) || -90;
+        // @ts-ignore
+        mechConfig.maxAngle = parseFloat(document.getElementById('yamsArmAngleMax')?.value) || 180;
+        // @ts-ignore
+        mechConfig.mass = parseFloat(document.getElementById('yamsArmMass')?.value) || 5.0;
+    } else if (mechType === 'Elevator') {
+        // @ts-ignore
+        mechConfig.drumRadius = parseFloat(document.getElementById('yamsDrumRadius')?.value) || 0.02;
+        // @ts-ignore
+        mechConfig.minHeight = parseFloat(document.getElementById('yamsElevatorMinHeight')?.value) || 0;
+        // @ts-ignore
+        mechConfig.maxHeight = parseFloat(document.getElementById('yamsElevatorMaxHeight')?.value) || 1.5;
+        // @ts-ignore
+        mechConfig.mass = parseFloat(document.getElementById('yamsElevatorMass')?.value) || 4.0;
+    } else if (mechType === 'Flywheel') {
+        // @ts-ignore
+        mechConfig.momentOfInertia = parseFloat(document.getElementById('yamsFlywheelMoI')?.value) || 0.001;
+    }
+
+    return {
+        subsystemName: name,
+        motorType,
+        controller,
+        hasFollower,
+        followerInverted,
+        mechType,
+        motorVersion,
+        gearing,
+        supplyLimit,
+        controlLoop,
+        kP, kI, kD,
+        kS, kV, kG, kA,
+        profileType,
+        maxVel, maxAccel,
+        startPosition,
+        sensorType,
+        encoderGearing,
+        encoderInverted,
+        encoderOffset,
+        mechConfig
+    };
+}
 
 window.prevWizardStep = () => {
     if (currentWizardStep > 1) {
@@ -1100,7 +1229,17 @@ document.getElementById('pidStrategy').addEventListener('change', (e) => {
 // @ts-ignore
 document.getElementById('generateBtn').addEventListener('click', () => {
     // @ts-ignore
-    const name = document.getElementById('subsystemName').value.trim();
+    const type = document.getElementById('subsystemType').value;
+    let name = '';
+
+    if (type === 'yams') {
+        // @ts-ignore
+        name = document.getElementById('yamsSubsystemName').value.trim();
+    } else {
+        // @ts-ignore
+        name = document.getElementById('subsystemName').value.trim();
+    }
+
     if (!name) return;
 
     // Collect Hardware
@@ -1133,7 +1272,6 @@ document.getElementById('generateBtn').addEventListener('click', () => {
     });
 
     // @ts-ignore
-    const type = document.getElementById('subsystemType').value;
     const data = {
         subsystemName: name,
         subsystemType: (type === 'pid' || type === 'profiled_pid') ? 'pid' : (type === 'yams' ? 'yams' : 'generic'),
@@ -1215,7 +1353,26 @@ document.getElementById('refreshBtn').addEventListener('click', () => {
 });
 
 renderDeviceTypes();
+renderDeviceTypes();
 renderDevices();
+
+// @ts-ignore
+const yamsNameInput = document.getElementById('yamsSubsystemName');
+if (yamsNameInput) {
+    yamsNameInput.addEventListener('blur', (e) => {
+        // @ts-ignore
+        let val = e.target.value.trim();
+        if (val) {
+            // Ensure capitalization
+            val = val.charAt(0).toUpperCase() + val.slice(1);
+            if (!val.endsWith('Subsystem')) {
+                val += 'Subsystem';
+            }
+            // @ts-ignore
+            e.target.value = val;
+        }
+    });
+}
 
 // --- YAMS Wizard Helper Functions ---
 
@@ -1339,10 +1496,10 @@ function handleMotorDrop(deviceName) {
 
     let valueToSelect = null;
     if (deviceName.includes('Kraken')) valueToSelect = 'Kraken X60';
-    else if (deviceName.includes('Talon FX')) valueToSelect = 'Talon FX';
+    else if (deviceName.includes('TalonFX') && !deviceName.includes('TalonFXS')) valueToSelect = 'Talon FX'; // Handle TalonFX vs TalonFXS
     else if (deviceName.includes('Vortex')) valueToSelect = 'Vortex';
-    else if (deviceName === 'NEO') valueToSelect = 'NEO';
-    else if (deviceName.includes('NEO 550')) valueToSelect = 'NEO550';
+    else if (deviceName.includes('NEO') && deviceName.includes('550')) valueToSelect = 'NEO550';
+    else if (deviceName.includes('NEO')) valueToSelect = 'NEO'; // Catch-all for other NEOs (V1.1, 2.0)
     else if (deviceName === 'CIM') valueToSelect = 'CIM';
     else if (deviceName === 'Mini CIM') valueToSelect = 'MiniCIM';
     else if (deviceName.includes('Bag')) valueToSelect = 'Bag';
@@ -1362,11 +1519,11 @@ function handleControllerDrop(deviceName) {
     if (!select) return;
 
     let valueToSelect = null;
-    if (deviceName.includes('TalonFX')) valueToSelect = 'TalonFX';
-    else if (deviceName.includes('Spark Max')) valueToSelect = 'SparkMax';
-    else if (deviceName.includes('Spark Flex')) valueToSelect = 'SparkFlex';
-    else if (deviceName.includes('Talon SRX')) valueToSelect = 'TalonSRX';
-    else if (deviceName.includes('Victor SPX')) valueToSelect = 'VictorSPX';
+    if (deviceName === 'TalonFX') valueToSelect = 'TalonFX';
+    else if (deviceName === 'SparkMax') valueToSelect = 'SparkMax';
+    else if (deviceName === 'SparkFlex') valueToSelect = 'SparkFlex';
+    else if (deviceName === 'TalonSRX') valueToSelect = 'TalonSRX';
+    else if (deviceName === 'VictorSPX') valueToSelect = 'VictorSPX';
 
     if (valueToSelect) {
         select.value = valueToSelect;
@@ -1446,3 +1603,6 @@ window.updateMechVisibility = () => {
 if (typeof window.initGuardrails === 'function') {
     window.initGuardrails();
 }
+
+// Signal readiness to extension
+vscode.postMessage({ command: 'ready' });

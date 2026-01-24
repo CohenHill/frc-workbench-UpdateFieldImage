@@ -230,7 +230,8 @@
                                 </div>
                                 <!-- Hidden Select for Logic Compatibility -->
                                 <select id="yamsMotorType" class="wizard-input" style="display: none;"
-                                    onchange="window.applyCurrentDefaults && window.applyCurrentDefaults()">
+                                    onchange="window.applyCurrentDefaults && window.applyCurrentDefaults()"
+                                    title="The motor powering your mechanism. Determines power output and control options.">
                                     <option value="Kraken X60">Kraken X60</option>
                                     <option value="Talon FX">Talon FX (Falcon 500)</option>
                                     <option value="NEO">NEO 1.1</option>
@@ -263,7 +264,8 @@
                                     </div>
                                 </div>
                                 <!-- Hidden Select for Logic Compatibility -->
-                                <select id="yamsController" class="wizard-input" style="display: none;">
+                                <select id="yamsController" class="wizard-input" style="display: none;"
+                                    title="Motor controller that will drive this motor. Must be compatible with motor type.">
                                     <option value="TalonFX">TalonFX (Phoenix 6)</option>
                                     <option value="SparkMax">SparkMax (REVLib)</option>
                                     <option value="SparkFlex">SparkFlex (REVLib)</option>
@@ -318,13 +320,14 @@
                         </div>
                         <div class="form-row" style="margin-top: 15px;">
                             <label>Mechanism Gearing (Reduction Ratio)</label>
-                            <input type="text" id="yamsGearing" placeholder="e.g. 10.5" value="1.0"
-                                class="wizard-input">
+                            <input type="text" id="yamsGearing" placeholder="e.g. 10.5" value="1.0" class="wizard-input"
+                                title="Total gear reduction ratio. Motor rotations per mechanism rotation.">
                             <span class="hint-text">Motor rotations per output rotation</span>
                         </div>
                         <div class="form-row" style="margin-top: 15px;">
                             <label>Supply Current Limit (Amps)</label>
-                            <input type="number" id="yamsSupplyLimit" value="40" class="wizard-input">
+                            <input type="number" id="yamsSupplyLimit" value="40" class="wizard-input"
+                                title="Maximum current draw from battery. Higher = more power but more stress.">
                         </div>
                     </div>
                 </div>
@@ -347,9 +350,12 @@
                         <div id="pidSection" style="margin-top: 20px;">
                             <div class="form-section-title">PID Constants</div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-                                <div><label>kP</label><input type="text" id="yamsKp" class="wizard-input"></div>
-                                <div><label>kI</label><input type="text" id="yamsKi" class="wizard-input"></div>
-                                <div><label>kD</label><input type="text" id="yamsKd" class="wizard-input"></div>
+                                <div><label>kP</label><input type="text" id="yamsKp" class="wizard-input"
+                                        title="Proportional gain: Higher = faster response, risk of oscillation"></div>
+                                <div><label>kI</label><input type="text" id="yamsKi" class="wizard-input"
+                                        title="Integral gain: Eliminates steady-state error, use sparingly"></div>
+                                <div><label>kD</label><input type="text" id="yamsKd" class="wizard-input"
+                                        title="Derivative gain: Dampens oscillation, sensitive to noise"></div>
                             </div>
                         </div>
                     </div>
@@ -364,10 +370,14 @@
                     <div class="wizard-page-body">
                         <div class="form-section-title">Feedforward (FVGA)</div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px;">
-                            <div><label>kS</label><input type="text" id="yamsKs" class="wizard-input"></div>
-                            <div><label>kV</label><input type="text" id="yamsKv" class="wizard-input"></div>
-                            <div><label>kG</label><input type="text" id="yamsKg" class="wizard-input"></div>
-                            <div><label>kA</label><input type="text" id="yamsKa" class="wizard-input"></div>
+                            <div><label>kS</label><input type="text" id="yamsKs" class="wizard-input"
+                                    title="Static friction compensation voltage"></div>
+                            <div><label>kV</label><input type="text" id="yamsKv" class="wizard-input"
+                                    title="Velocity feedforward (volts per unit velocity)"></div>
+                            <div><label>kG</label><input type="text" id="yamsKg" class="wizard-input"
+                                    title="Gravity compensation (required for Arms/Elevators)"></div>
+                            <div><label>kA</label><input type="text" id="yamsKa" class="wizard-input"
+                                    title="Acceleration feedforward (volts per unit acceleration)"></div>
                         </div>
                         <div class="form-row" style="margin-top: 20px;">
                             <label>Motion Profile</label>
@@ -388,22 +398,33 @@
                     </div>
                 </div>
 
-                <!-- Page 6: Mechanism Selection -->
+                <!-- Page 6: Limits Configuration -->
                 <div class="wizard-page" data-page="6">
                     <div class="wizard-page-header">
-                        <h2>🦾 Mechanism Selection</h2>
-                        <p class="wizard-page-desc">Select the mechanism type.</p>
+                        <h2>🛡️ Limits & Safety</h2>
+                        <p class="wizard-page-desc">Configure soft and hard limits for safe operation.</p>
                     </div>
                     <div class="wizard-page-body">
-                        <div class="form-row">
-                            <label>Mechanism Type</label>
-                            <select id="yamsMechType" class="wizard-input"
-                                onchange="window.enforceMechanismGuardrails && window.enforceMechanismGuardrails()">
-                                <option value="Generic">Generic</option>
-                                <option value="Arm">Arm (Rotational)</option>
-                                <option value="Elevator">Elevator (Linear)</option>
-                                <option value="Flywheel">Flywheel (Velocity)</option>
-                            </select>
+                        <div style="display: flex; gap: 15px;">
+                            <div style="flex: 1;" class="form-row">
+                                <label title="Minimum allowed position (soft limit)">Soft Min Limit</label>
+                                <input type="number" id="yamsSoftMinLimit" placeholder="0.0" class="wizard-input"
+                                    title="Software-enforced minimum position. Motor will slow down as it approaches.">
+                            </div>
+                            <div style="flex: 1;" class="form-row">
+                                <label title="Maximum allowed position (soft limit)">Soft Max Limit</label>
+                                <input type="number" id="yamsSoftMaxLimit" placeholder="1.0" class="wizard-input"
+                                    title="Software-enforced maximum position. Motor will slow down as it approaches.">
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top: 15px;">
+                            <label>
+                                <input type="checkbox" id="yamsEnableSoftLimits" checked>
+                                Enable Soft Limits
+                            </label>
+                            <span class="hint-text"
+                                title="Soft limits prevent the motor from exceeding specified positions via software.">Recommended
+                                for safety</span>
                         </div>
                     </div>
                 </div>

@@ -171,6 +171,12 @@ function activate(context) {
                         }
                         return;
 
+                    case 'ready': {
+                        const v = await checkVendors();
+                        panel.webview.postMessage({ command: 'updateVendordeps', vendors: v });
+                        return;
+                    }
+
                 }
             },
             undefined,
