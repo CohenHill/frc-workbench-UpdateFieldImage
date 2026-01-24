@@ -1,0 +1,136 @@
+// Copyright (c) FIRST and other WPILib contributors.
+// Open Source Software; you can modify and/or share it under the terms of
+// the WPILib BSD license file in the root directory of this project.
+
+package frc.robot.subsystems;
+
+import static edu.wpi.first.units.Units.*;
+
+{{!-- Dynamic Imports based on Motor Controller Type --}}
+{{#if (eq motorControllerType 'SparkMax')}}
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
+import yams.motorcontrollers.local.SparkWrapper;
+{{/if}}
+{{#if (eq motorControllerType 'SparkFlex')}}
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkFlex;
+import yams.motorcontrollers.local.SparkFlexWrapper;
+{{/if}}
+{{#if (eq motorControllerType 'TalonFX')}}
+import com.ctre.phoenix6.hardware.TalonFX;
+import yams.motorcontrollers.local.TalonFXWrapper;
+{{/if}}
+{{#if (eq motorControllerType 'TalonFXS')}}
+import com.ctre.phoenix6.hardware.TalonFXS;
+import yams.motorcontrollers.local.TalonFXSWrapper;
+{{/if}}
+
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import yams.mechanisms.config.FlyWheelConfig;
+import yams.mechanisms.velocity.FlyWheel;
+import yams.motorcontrollers.SmartMotorController;
+import yams.motorcontrollers.SmartMotorControllerConfig;
+import yams.motorcontrollers.SmartMotorControllerConfig.ControlMode;
+import yams.motorcontrollers.SmartMotorControllerConfig.MotorMode;
+import yams.motorcontrollers.SmartMotorControllerConfig.TelemetryVerbosity;
+import yams.gearing.GearBox;
+import yams.gearing.MechanismGearing;
+
+public class {{subsystemName}} extends SubsystemBase {
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1. SmartMotorController Configuration
+// ═══════════════════════════════════════════════════════════════════════════
+private SmartMotorControllerConfig smcConfig = new SmartMotorControllerConfig(this)
+// Control Mode
+.withControlMode(ControlMode.{{controlMode}})
+// PID with velocity constraints (RPM for shooter)
+.withClosedLoopController(
+{{pid.kP}}, {{pid.kI}}, {{pid.kD}},
+RPM.of({{maxVelocity}}),
+RPM.per(Second).of({{maxAcceleration}}))
+// Simulation PID
+.withSimClosedLoopController({{simPid.kP}}, {{simPid.kI}}, {{simPid.kD}})
+// Feedforward (SimpleMotorFeedforward - no gravity for flywheel)
+.withFeedforward(new SimpleMotorFeedforward({{ff.kS}}, {{ff.kV}}{{#if ff.kA}}, {{ff.kA}}{{/if}}))
+.withSimFeedforward(new SimpleMotorFeedforward({{simFf.kS}}, {{simFf.kV}}{{#if simFf.kA}}, {{simFf.kA}}{{/if}}))
+// Gearing
+.withGearing(new MechanismGearing(GearBox.fromReductionStages({{gearingStages}})))
+// Motor Settings (COAST for flywheel to avoid sudden stops)
+.withMotorInverted({{inverted}})
+.withIdleMode(MotorMode.COAST)
+.withStatorCurrentLimit(Amps.of({{statorCurrentLimit}}))
+.withSupplyCurrentLimit(Amps.of({{supplyCurrentLimit}}))
+// Telemetry
+.withTelemetry("{{subsystemName}}Motor", TelemetryVerbosity.HIGH);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. Motor Controller Initialization
+// ═══════════════════════════════════════════════════════════════════════════
+{{#if (eq motorControllerType 'SparkMax')}}
+private SparkMax motor = new SparkMax({{canId}}, MotorType.kBrushless);
+private SmartMotorController smartMotorController = new SparkWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'SparkFlex')}}
+private SparkFlex motor = new SparkFlex({{canId}}, MotorType.kBrushless);
+private SmartMotorController smartMotorController = new SparkFlexWrapper(motor, DCMotor.get{{motorModel}}(1),
+smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'TalonFX')}}
+private TalonFX motor = new TalonFX({{canId}});
+private SmartMotorController smartMotorController = new TalonFXWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+{{#if (eq motorControllerType 'TalonFXS')}}
+private TalonFXS motor = new TalonFXS({{canId}});
+private SmartMotorController smartMotorController = new TalonFXSWrapper(motor, DCMotor.get{{motorModel}}(1), smcConfig);
+{{/if}}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3. Flywheel/Shooter Mechanism Configuration
+// ═══════════════════════════════════════════════════════════════════════════
+private FlyWheelConfig flywheelConfig = new FlyWheelConfig(smartMotorController)
+.withDiameter(Inches.of({{flywheelDiameter}}))
+.withMass(Pounds.of({{mass}}))
+.withUpperSoftLimit(RPM.of({{flywheelMaxRpm}}))
+.withTelemetry("{{subsystemName}}", TelemetryVerbosity.HIGH);
+
+private FlyWheel flywheel = new FlyWheel(flywheelConfig);
+
+/** Creates a new {{subsystemName}}. */
+public {{subsystemName}}() {}
+
+/**
+* Set the shooter velocity.
+* @param velocity Target velocity in RPM.
+* @return Command that spins up the shooter to the target velocity.
+*/
+public Command setVelocity(AngularVelocity velocity) {
+return flywheel.setSpeed(velocity);
+}
+
+/**
+* Get the current velocity of the shooter.
+* @return Current shooter velocity.
+*/
+public AngularVelocity getVelocity() {
+return flywheel.getSpeed();
+}
+
+/**
+* Check if the shooter is at the target velocity.
+* @param targetVelocity Target velocity to check against.
+* @param tolerance Acceptable tolerance.
+* @return True if at velocity.
+*/
+public boolean atVelocity(AngularVelocity targetVelocity, AngularVelocity tolerance) {
+return Math.abs(getVelocity().in(RPM) - targetVelocity.in(RPM)) < tolerance.in(RPM); } /** * Run the shooter with duty
+    cycle (open loop). * @param dutyCycle Speed from -1.0 to 1.0. * @return Command that runs the shooter at the
+    specified duty cycle. */ public Command set(double dutyCycle) { return flywheel.set(dutyCycle); } /** * Stop the
+    shooter. * @return Command that stops the shooter. */ public Command stop() { return flywheel.set(0); } @Override
+    public void periodic() { flywheel.updateTelemetry(); } @Override public void simulationPeriodic() {
+    flywheel.simIterate(); } }

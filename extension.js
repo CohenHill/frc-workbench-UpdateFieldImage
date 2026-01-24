@@ -3,7 +3,7 @@ const PathPlannerPreviewProvider = require('./src/extension/pathPlannerPreviewPr
 const AutoPreviewProvider = require('./src/extension/autoPreviewProvider');
 
 // Import new modules
-const subsystemWizard = require('./src/extension/subsystemWizard');
+const subsystemWizard = require('./src/extension/subsystemWizardProvider');
 const pidTuner = require('./src/extension/pidTuner');
 const constantsManager = require('./src/extension/constantsManager');
 const commandComposer = require('./src/extension/commandComposer');

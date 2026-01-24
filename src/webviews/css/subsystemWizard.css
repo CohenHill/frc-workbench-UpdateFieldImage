@@ -723,6 +723,14 @@ tr.device-row:hover td {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
+.carousel-btn.prev {
+    left: 10px;
+}
+
+.carousel-btn.next {
+    right: 10px;
+}
+
 .modal {
     display: none;
     position: fixed;
@@ -796,4 +804,262 @@ tr.device-row:hover td {
 
 .config-section:hover {
     border-color: var(--focus-border);
+}
+
+/* ==========================================
+   MECHANISM SELECTION CARDS
+   ========================================== */
+
+.mechanism-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 10px;
+    pointer-events: auto;
+    overflow: visible;
+}
+
+/* Responsive: 2 columns on narrower screens */
+@media (max-width: 700px) {
+    .mechanism-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.mech-card {
+    background: var(--vscode-editor-background);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.mech-card:hover {
+    border-color: var(--focus-border);
+    background: rgba(100, 100, 255, 0.05);
+    transform: translateY(-2px);
+    z-index: 2;
+}
+
+.mech-card.active {
+    border-color: var(--button-bg);
+    background: rgba(100, 100, 255, 0.1);
+    box-shadow: 0 0 0 2px var(--button-bg), 0 4px 12px rgba(100, 100, 255, 0.2);
+    z-index: 3;
+}
+
+.mech-icon {
+    font-size: 2.5em;
+    line-height: 1;
+}
+
+.mech-title {
+    font-weight: 600;
+    font-size: 1em;
+    color: var(--foreground);
+}
+
+.mech-desc {
+    font-size: 0.8em;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.4;
+}
+
+/* Step Labels */
+.step-label {
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+}
+
+.wizard-step.active .step-label {
+    color: var(--button-bg);
+}
+
+.wizard-step.completed .step-label {
+    color: var(--vscode-terminal-ansiGreen);
+}
+
+/* Review Page Labels */
+.review-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--vscode-descriptionForeground);
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.review-value {
+    font-size: 1.1em;
+    color: var(--foreground);
+    font-weight: 500;
+}
+
+/* Mechanism Config Sections */
+.mech-config-section {
+    animation: fadeSlideIn 0.25s ease;
+}
+
+/* Form Section Title */
+.form-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vscode-descriptionForeground);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Primary Button (green accent for generate) */
+.btn-primary {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    color: #fff;
+    font-weight: 600;
+    border: none;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+    box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+    transform: translateY(-1px);
+}
+
+/* ==========================================
+   YAMS MOTOR DROP ZONES
+   ========================================== */
+
+.yams-drop-zone {
+    border: 2px dashed var(--vscode-dropdown-border);
+    background: rgba(128, 128, 128, 0.03);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.yams-drop-zone:hover {
+    border-color: var(--focus-border);
+    background: rgba(128, 128, 255, 0.05);
+}
+
+.yams-drop-zone.drag-over {
+    border-color: var(--focus-border);
+    background: rgba(100, 100, 255, 0.1);
+    transform: scale(1.01);
+}
+
+.yams-drop-zone.filled {
+    border-style: solid;
+    border-color: var(--vscode-terminal-ansiGreen);
+    background: rgba(40, 167, 69, 0.08);
+}
+
+.yams-drop-zone.error {
+    border-color: var(--vscode-errorForeground);
+    background: rgba(255, 100, 100, 0.1);
+    animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-5px);
+    }
+
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+.drop-zone-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.drop-zone-icon {
+    font-size: 24px;
+}
+
+.drop-zone-text {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.dropped-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--vscode-editor-background);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.dropped-item-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.dropped-item-info {
+    flex: 1;
+    text-align: left;
+}
+
+.dropped-item-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--foreground);
+}
+
+.dropped-item-category {
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.dropped-item-remove {
+    background: transparent;
+    border: none;
+    color: var(--vscode-errorForeground);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 16px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.dropped-item-remove:hover {
+    opacity: 1;
+    background: rgba(255, 100, 100, 0.1);
 }
